@@ -1,6 +1,3 @@
-using EnterpriseAI.DTOs;
-using EnterpriseAI.Models;
-
 namespace EnterpriseAI.Mappings
 {
     public static class UserMappings
@@ -17,14 +14,14 @@ namespace EnterpriseAI.Mappings
                 user.UpdatedAt);
         }
 
-        public static User ToEntity(this CreateUserDto dto)
+        public static User ToEntity(this CreateUserDto dto, string passwordHash)
         {
             return new User
             {
                 Id = Guid.NewGuid().ToString(),
                 FullName = dto.FullName,
                 Email = dto.Email,
-                PasswordHash = dto.PasswordHash,
+                PasswordHash = passwordHash,
                 Role = dto.Role,
                 IsActive = true,
                 CreatedAt = DateTime.UtcNow,

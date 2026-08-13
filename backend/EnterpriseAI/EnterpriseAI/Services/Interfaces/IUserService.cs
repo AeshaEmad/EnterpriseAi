@@ -1,5 +1,3 @@
-using EnterpriseAI.DTOs;
-
 namespace EnterpriseAI.Services.Interfaces
 {
     public interface IUserService

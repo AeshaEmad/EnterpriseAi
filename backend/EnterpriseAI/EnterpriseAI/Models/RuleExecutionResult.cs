@@ -1,6 +1,4 @@
-﻿using System.Text.Json.Nodes;
-
-namespace EnterpriseAI.Models
+﻿namespace EnterpriseAI.Models
 {
     public class RuleExecutionResult
     {

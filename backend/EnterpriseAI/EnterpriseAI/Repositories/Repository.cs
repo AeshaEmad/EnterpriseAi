@@ -1,7 +1,3 @@
-using EnterpriseAI.Data;
-using EnterpriseAI.Repositories.Interfaces;
-using Microsoft.EntityFrameworkCore;
-
 namespace EnterpriseAI.Repositories
 {
     public class Repository<T> : IRepository<T> where T : class
@@ -28,6 +24,11 @@ namespace EnterpriseAI.Repositories
         public virtual async Task<bool> ExistsAsync(string id, CancellationToken cancellationToken = default)
         {
             return await _dbSet.AnyAsync(e => EF.Property<string>(e, "Id") == id, cancellationToken);
+        }
+
+        public virtual async Task<T?> GetFirstAsync(Expression<Func<T, bool>> predicate, CancellationToken cancellationToken = default)
+        {
+            return await _dbSet.FirstOrDefaultAsync(predicate, cancellationToken);
         }
 
         public virtual async Task AddAsync(T entity, CancellationToken cancellationToken = default)

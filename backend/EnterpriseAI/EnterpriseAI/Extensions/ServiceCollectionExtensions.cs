@@ -1,10 +1,3 @@
-using EnterpriseAI.Data;
-using EnterpriseAI.Repositories;
-using EnterpriseAI.Repositories.Interfaces;
-using EnterpriseAI.Services;
-using EnterpriseAI.Services.Interfaces;
-using Microsoft.EntityFrameworkCore;
-
 namespace EnterpriseAI.Extensions
 {
     public static class ServiceCollectionExtensions
@@ -18,7 +11,35 @@ namespace EnterpriseAI.Extensions
             services.AddScoped(typeof(IWriteRepository<>), typeof(Repository<>));
             services.AddScoped(typeof(IRepository<>), typeof(Repository<>));
 
+            services.AddScoped<IPasswordHasher<User>, PasswordHasher<User>>();
+
             services.AddScoped<IUserService, UserService>();
+            services.AddScoped<IAuthService, AuthService>();
+
+            return services;
+        }
+
+        public static IServiceCollection AddJwtAuthentication(this IServiceCollection services, IConfiguration configuration)
+        {
+            var jwtSection = configuration.GetSection("Jwt");
+            services.Configure<JwtSettings>(jwtSection);
+
+            var jwt = jwtSection.Get<JwtSettings>() ?? new JwtSettings();
+
+            services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+                .AddJwtBearer(options =>
+                {
+                    options.TokenValidationParameters = new TokenValidationParameters
+                    {
+                        ValidateIssuer = true,
+                        ValidateAudience = true,
+                        ValidateLifetime = true,
+                        ValidateIssuerSigningKey = true,
+                        ValidIssuer = jwt.Issuer,
+                        ValidAudience = jwt.Audience,
+                        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwt.Key))
+                    };
+                });
 
             return services;
         }

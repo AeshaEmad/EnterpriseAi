@@ -1,0 +1,30 @@
+global using System.ComponentModel.DataAnnotations;
+global using System.IdentityModel.Tokens.Jwt;
+global using System.Linq.Expressions;
+global using System.Security.Claims;
+global using System.Text;
+global using System.Text.Json.Nodes;
+
+global using EnterpriseAI.Data;
+global using EnterpriseAI.DTOs.Auth;
+global using EnterpriseAI.DTOs.Users;
+global using EnterpriseAI.Extensions;
+global using EnterpriseAI.Mappings;
+global using EnterpriseAI.Middleware;
+global using EnterpriseAI.Models;
+global using EnterpriseAI.Repositories;
+global using EnterpriseAI.Repositories.Interfaces;
+global using EnterpriseAI.Services.Implementations;
+global using EnterpriseAI.Services.Interfaces;
+global using EnterpriseAI.Settings;
+
+global using Microsoft.AspNetCore.Authentication.JwtBearer;
+global using Microsoft.AspNetCore.Authorization;
+global using Microsoft.AspNetCore.Identity;
+global using Microsoft.AspNetCore.Mvc;
+global using Microsoft.EntityFrameworkCore;
+global using Microsoft.EntityFrameworkCore.ChangeTracking;
+global using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
+global using Microsoft.Extensions.Options;
+global using Microsoft.IdentityModel.Tokens;
+global using Scalar.AspNetCore;
