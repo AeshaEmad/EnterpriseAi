@@ -25,6 +25,11 @@ namespace EnterpriseAI.Repositories
             return await _dbSet.ToListAsync(cancellationToken);
         }
 
+        public virtual async Task<bool> ExistsAsync(string id, CancellationToken cancellationToken = default)
+        {
+            return await _dbSet.AnyAsync(e => EF.Property<string>(e, "Id") == id, cancellationToken);
+        }
+
         public virtual async Task AddAsync(T entity, CancellationToken cancellationToken = default)
         {
             await _dbSet.AddAsync(entity, cancellationToken);

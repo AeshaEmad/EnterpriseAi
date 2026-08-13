@@ -1,6 +1,8 @@
 using EnterpriseAI.Data;
 using EnterpriseAI.Repositories;
 using EnterpriseAI.Repositories.Interfaces;
+using EnterpriseAI.Services;
+using EnterpriseAI.Services.Interfaces;
 using Microsoft.EntityFrameworkCore;
 
 namespace EnterpriseAI.Extensions
@@ -12,7 +14,11 @@ namespace EnterpriseAI.Extensions
             services.AddDbContext<AppDbContext>(options =>
                 options.UseSqlServer(configuration.GetConnectionString("DefaultConnection")));
 
+            services.AddScoped(typeof(IReadRepository<>), typeof(Repository<>));
+            services.AddScoped(typeof(IWriteRepository<>), typeof(Repository<>));
             services.AddScoped(typeof(IRepository<>), typeof(Repository<>));
+
+            services.AddScoped<IUserService, UserService>();
 
             return services;
         }
