@@ -12,7 +12,7 @@
 	- UpdatedAt : timestamp
 	- UNIQUE(Email)
 
-2.user_profile_attributes
+2. User_profile_attributes
 
 	- Id : string PK
 	- AttributeKey : string
@@ -24,7 +24,7 @@
 	- UserId : string FK
 	- UNIQUE(UserId, AttributeKey)
 
-3.Forms
+3. Forms
 
 	- Id : string PK
 	- Name : string
@@ -33,7 +33,7 @@
 	- CreatedAt : timestamp
 	- UpdatedAt : timestamp
 
-4.form_versions
+4. Form_versions
 
 	- Id : string PK
 	- FormId : string FK
@@ -45,7 +45,7 @@
 	- UpdatedAt : timestamp
 	- UNIQUE(FormId, VersionNumber)
 
-5.form_fields
+5. Form_fields
 
 	- Id : string PK
 	- FormVersionId : string FK
@@ -61,7 +61,7 @@
 	- UpdatedAt : timestamp
 	- UNIQUE(FormVersionId, FieldName)
 
-6.form_submissions
+6. Form_submissions
 
 	- Id : string PK
 	- UserId : string FK
@@ -71,7 +71,7 @@
 	- UpdatedAt : timestamp
 	- SubmittedAt : timestamp nullable
 
-7.submission_fields
+7. Submission_fields
 
 	- Id : string PK
 	- SubmissionId : string FK
@@ -86,7 +86,7 @@
 	- UpdatedAt : timestamp
 	- UNIQUE(SubmissionId, FormFieldId)
 
-8.submission_field_history
+8. Submission_field_history
 
 	- Id : string PK
 	- SubmissionFieldId : string FK
@@ -97,7 +97,7 @@
 	- Reason : string nullable
 	- ChangedAt : timestamp
 
-9.ai_analyses
+9. Ai_analyses
 
 	- Id : string PK
 	- SubmissionId : string FK
@@ -109,7 +109,7 @@
 	- ErrorMessage : string nullable
 	- CreatedAt : timestamp
 
-10.conversation_messages
+10. Conversation_messages
 
 	- Id : string PK
 	- SubmissionId : string FK
@@ -121,7 +121,7 @@
 	- CreatedAt : timestamp
 	- UNIQUE(SubmissionId, SequenceNumber)
 
-11.clarifications
+11. Clarifications
 
 	- Id : string PK
 	- SubmissionId : string FK
@@ -135,7 +135,7 @@
 	- QuestionMessageId : string FK
 	- AnswerMessageId : string FK nullable
 
-12.business_rules
+12. Business_rules
 
 	- Id : string PK
 	- FormVersionId : string FK nullable
@@ -148,7 +148,7 @@
 	- CreatedAt : timestamp
 	- UpdatedAt : timestamp
 
-13.rule_execution_results
+13. Rule_execution_results
 
 	- Id : string PK
 	- SubmissionId : string FK
@@ -158,7 +158,7 @@
 	- Details : string nullable
 	- ExecutedAt : timestamp
 
-14.confirmations
+14. Confirmations
 
 	- Id : string PK
 	- SubmissionId : string FK
