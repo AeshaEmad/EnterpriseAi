@@ -1,6 +1,5 @@
 
-using EnterpriseAI.Data;
-using Microsoft.EntityFrameworkCore;
+using EnterpriseAI.Extensions;
 
 namespace EnterpriseAI
 {
@@ -13,8 +12,7 @@ namespace EnterpriseAI
             // Add services to the container.
 
             builder.Services.AddControllers();
-            builder.Services.AddDbContext<AppDbContext>(options =>
-                options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+            builder.Services.AddApplicationServices(builder.Configuration);
             // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
             builder.Services.AddOpenApi();
 
