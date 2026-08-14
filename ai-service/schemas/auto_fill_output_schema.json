@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Enterprise AI Auto-Filler Output",
+  "type": "object",
+  "required": [
+    "status",
+    "data",
+    "missingFields",
+    "ambiguousFields",
+    "needsClarification",
+    "clarificationQuestion"
+  ],
+  "properties": {
+    "status": {
+      "type": "string",
+      "enum": [
+        "success",
+        "incomplete",
+        "clarification_required",
+        "invalid"
+      ]
+    },
+    "data": {
+      "type": "object"
+    },
+    "missingFields": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "field",
+          "reason"
+        ],
+        "properties": {
+          "field": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "ambiguousFields": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "field",
+          "reason"
+        ],
+        "properties": {
+          "field": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "needsClarification": {
+      "type": "boolean"
+    },
+    "clarificationQuestion": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "additionalProperties": false
+}
