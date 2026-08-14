@@ -12,20 +12,30 @@ class OllamaClient:
             "OLLAMA_BASE_URL",
             "http://localhost:11434"
         )
+
         self.model = os.getenv(
             "OLLAMA_MODEL",
             "qwen3:4b"
         )
 
-    def generate(self, prompt: str) -> str:
+    def generate(
+        self,
+        system_prompt: str,
+        user_message: str
+    ) -> str:
+
         response = requests.post(
             f"{self.base_url}/api/chat",
             json={
                 "model": self.model,
                 "messages": [
                     {
+                        "role": "system",
+                        "content": system_prompt
+                    },
+                    {
                         "role": "user",
-                        "content": prompt
+                        "content": user_message
                     }
                 ],
                 "stream": False
