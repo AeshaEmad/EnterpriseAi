@@ -38,7 +38,7 @@ class OllamaClient:
                         "content": user_message
                     }
                 ],
-                "stream": False
+                "stream": True
             },
             timeout=600
         )
