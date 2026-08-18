@@ -89,4 +89,6 @@ namespace EnterpriseAI.DTOs.Forms
 
         public int DisplayOrder { get; set; }
     }
+
+    public record ApprovalActionDto(string? Comment);
 }

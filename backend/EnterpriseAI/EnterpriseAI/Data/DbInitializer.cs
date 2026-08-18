@@ -19,31 +19,51 @@ namespace EnterpriseAI.Data
 
             try
             {
-                if (await db.Users.AnyAsync(u => u.Email.ToLower() == email.ToLower()))
+                if (!await db.Users.AnyAsync(u => u.Email.ToLower() == email.ToLower()))
                 {
-                    return;
+                    var admin = new User
+                    {
+                        Id = Guid.NewGuid().ToString(),
+                        FullName = configuration["Admin:FullName"] ?? "System Administrator",
+                        Email = email.Trim(),
+                        PasswordHash = string.Empty,
+                        Role = "Admin",
+                        IsActive = true,
+                        CreatedAt = DateTime.UtcNow,
+                        UpdatedAt = DateTime.UtcNow
+                    };
+
+                    admin.PasswordHash = hasher.HashPassword(admin, password);
+                    db.Users.Add(admin);
                 }
 
-                var admin = new User
+                var managerEmail = configuration["Manager:Email"];
+                var managerPassword = configuration["Manager:Password"];
+                if (!string.IsNullOrWhiteSpace(managerEmail) && !string.IsNullOrWhiteSpace(managerPassword))
                 {
-                    Id = Guid.NewGuid().ToString(),
-                    FullName = configuration["Admin:FullName"] ?? "System Administrator",
-                    Email = email.Trim(),
-                    PasswordHash = string.Empty,
-                    Role = "Admin",
-                    IsActive = true,
-                    CreatedAt = DateTime.UtcNow,
-                    UpdatedAt = DateTime.UtcNow
-                };
+                    if (!await db.Users.AnyAsync(u => u.Email.ToLower() == managerEmail.ToLower()))
+                    {
+                        var manager = new User
+                        {
+                            Id = Guid.NewGuid().ToString(),
+                            FullName = configuration["Manager:FullName"] ?? "Form Manager",
+                            Email = managerEmail.Trim(),
+                            PasswordHash = string.Empty,
+                            Role = "Manager",
+                            IsActive = true,
+                            CreatedAt = DateTime.UtcNow,
+                            UpdatedAt = DateTime.UtcNow
+                        };
 
-                admin.PasswordHash = hasher.HashPassword(admin, password);
+                        manager.PasswordHash = hasher.HashPassword(manager, managerPassword);
+                        db.Users.Add(manager);
+                    }
+                }
 
-                db.Users.Add(admin);
                 await db.SaveChangesAsync();
             }
             catch (Exception)
             {
-                // Database may be unavailable at startup; the admin will be seeded on the next run.
             }
         }
     }

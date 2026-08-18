@@ -1,5 +1,13 @@
 namespace EnterpriseAI.Services.Implementations
 {
+    public static class FormVersionStatus
+    {
+        public const string Draft = "Draft";
+        public const string PendingApproval = "PendingApproval";
+        public const string Published = "Published";
+        public const string Rejected = "Rejected";
+    }
+
     public class FormService : IFormService
     {
         private readonly IRepository<Form> _forms;
@@ -112,6 +120,11 @@ namespace EnterpriseAI.Services.Implementations
                 throw new KeyNotFoundException("Form version not found.");
             }
 
+            if (version.Status != FormVersionStatus.Draft)
+            {
+                throw new InvalidOperationException("Fields can only be added to a Draft version.");
+            }
+
             var duplicate = await _fields.GetFirstAsync(
                 f => f.FormVersionId == versionId && f.FieldName.ToLower() == dto.FieldName.ToLower(), cancellationToken);
 
@@ -124,6 +137,98 @@ namespace EnterpriseAI.Services.Implementations
             await _fields.AddAsync(field, cancellationToken);
             await _fields.SaveChangesAsync(cancellationToken);
             return field.ToDto();
+        }
+
+        public async Task<FormVersionDto?> SubmitForApprovalAsync(string formId, string versionId, CancellationToken cancellationToken = default)
+        {
+            var version = await _versions.GetFirstAsync(v => v.Id == versionId && v.FormId == formId, cancellationToken);
+            if (version is null)
+            {
+                throw new KeyNotFoundException("Form version not found.");
+            }
+
+            if (version.Status != FormVersionStatus.Draft)
+            {
+                throw new InvalidOperationException("Only Draft versions can be submitted for approval.");
+            }
+
+            version.Status = FormVersionStatus.PendingApproval;
+            version.UpdatedAt = DateTime.UtcNow;
+            _versions.Update(version);
+            await _versions.SaveChangesAsync(cancellationToken);
+            return version.ToDto();
+        }
+
+        public async Task<FormVersionDto?> ApproveVersionAsync(string formId, string versionId, ApprovalActionDto dto, CancellationToken cancellationToken = default)
+        {
+            var version = await _versions.GetFirstAsync(v => v.Id == versionId && v.FormId == formId, cancellationToken);
+            if (version is null)
+            {
+                throw new KeyNotFoundException("Form version not found.");
+            }
+
+            if (version.Status != FormVersionStatus.PendingApproval)
+            {
+                throw new InvalidOperationException("Only versions in PendingApproval status can be approved.");
+            }
+
+            var oldActiveVersion = await _versions.GetFirstAsync(
+                v => v.FormId == formId && v.IsActive && v.Id != versionId, cancellationToken);
+
+            if (oldActiveVersion is not null)
+            {
+                oldActiveVersion.IsActive = false;
+                oldActiveVersion.UpdatedAt = DateTime.UtcNow;
+                _versions.Update(oldActiveVersion);
+            }
+
+            version.Status = FormVersionStatus.Published;
+            version.IsActive = true;
+            version.PublishedAt = DateTime.UtcNow;
+            version.UpdatedAt = DateTime.UtcNow;
+            _versions.Update(version);
+            await _versions.SaveChangesAsync(cancellationToken);
+            return version.ToDto();
+        }
+
+        public async Task<FormVersionDto?> RejectVersionAsync(string formId, string versionId, ApprovalActionDto dto, CancellationToken cancellationToken = default)
+        {
+            var version = await _versions.GetFirstAsync(v => v.Id == versionId && v.FormId == formId, cancellationToken);
+            if (version is null)
+            {
+                throw new KeyNotFoundException("Form version not found.");
+            }
+
+            if (version.Status != FormVersionStatus.PendingApproval)
+            {
+                throw new InvalidOperationException("Only versions in PendingApproval status can be rejected.");
+            }
+
+            version.Status = FormVersionStatus.Rejected;
+            version.UpdatedAt = DateTime.UtcNow;
+            _versions.Update(version);
+            await _versions.SaveChangesAsync(cancellationToken);
+            return version.ToDto();
+        }
+
+        public async Task<FormVersionDto?> ResubmitVersionAsync(string formId, string versionId, CancellationToken cancellationToken = default)
+        {
+            var version = await _versions.GetFirstAsync(v => v.Id == versionId && v.FormId == formId, cancellationToken);
+            if (version is null)
+            {
+                throw new KeyNotFoundException("Form version not found.");
+            }
+
+            if (version.Status != FormVersionStatus.Rejected)
+            {
+                throw new InvalidOperationException("Only Rejected versions can be resubmitted.");
+            }
+
+            version.Status = FormVersionStatus.Draft;
+            version.UpdatedAt = DateTime.UtcNow;
+            _versions.Update(version);
+            await _versions.SaveChangesAsync(cancellationToken);
+            return version.ToDto();
         }
     }
 }
