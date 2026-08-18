@@ -7,6 +7,9 @@ global using System.Text.Json.Nodes;
 
 global using EnterpriseAI.Data;
 global using EnterpriseAI.DTOs.Auth;
+global using EnterpriseAI.DTOs.BusinessRules;
+global using EnterpriseAI.DTOs.Forms;
+global using EnterpriseAI.DTOs.Submissions;
 global using EnterpriseAI.DTOs.Users;
 global using EnterpriseAI.Extensions;
 global using EnterpriseAI.Mappings;

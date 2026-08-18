@@ -31,6 +31,22 @@ namespace EnterpriseAI.Repositories
             return await _dbSet.FirstOrDefaultAsync(predicate, cancellationToken);
         }
 
+        public virtual async Task<T?> GetFirstAsync(Expression<Func<T, bool>> predicate, Expression<Func<T, object>>[] includes, CancellationToken cancellationToken = default)
+        {
+            IQueryable<T> query = _dbSet;
+            foreach (var include in includes)
+            {
+                query = query.Include(include);
+            }
+
+            return await query.FirstOrDefaultAsync(predicate, cancellationToken);
+        }
+
+        public virtual async Task<IEnumerable<T>> GetManyAsync(Expression<Func<T, bool>> predicate, CancellationToken cancellationToken = default)
+        {
+            return await _dbSet.Where(predicate).ToListAsync(cancellationToken);
+        }
+
         public virtual async Task AddAsync(T entity, CancellationToken cancellationToken = default)
         {
             await _dbSet.AddAsync(entity, cancellationToken);

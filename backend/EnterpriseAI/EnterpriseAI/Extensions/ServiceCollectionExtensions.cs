@@ -15,6 +15,10 @@ namespace EnterpriseAI.Extensions
 
             services.AddScoped<IUserService, UserService>();
             services.AddScoped<IAuthService, AuthService>();
+            services.AddScoped<IFormService, FormService>();
+            services.AddScoped<IBusinessRuleService, BusinessRuleService>();
+            services.AddScoped<ISubmissionService, SubmissionService>();
+            services.AddScoped<IBusinessRuleEngine, BusinessRuleEngine>();
 
             return services;
         }
