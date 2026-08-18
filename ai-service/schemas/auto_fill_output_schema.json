@@ -1,75 +1,67 @@
-{
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "Enterprise AI Auto-Filler Output",
-  "type": "object",
-  "required": [
-    "status",
-    "data",
-    "missingFields",
-    "ambiguousFields",
-    "needsClarification",
-    "clarificationQuestion"
-  ],
-  "properties": {
-    "status": {
-      "type": "string",
-      "enum": [
-        "success",
-        "incomplete",
-        "clarification_required",
-        "invalid"
-      ]
-    },
-    "data": {
-      "type": "object"
-    },
-    "missingFields": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "required": [
-          "field",
-          "reason"
-        ],
-        "properties": {
-          "field": {
-            "type": "string"
-          },
-          "reason": {
-            "type": "string"
-          }
-        },
-        "additionalProperties": false
-      }
-    },
-    "ambiguousFields": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "required": [
-          "field",
-          "reason"
-        ],
-        "properties": {
-          "field": {
-            "type": "string"
-          },
-          "reason": {
-            "type": "string"
-          }
-        },
-        "additionalProperties": false
-      }
-    },
-    "needsClarification": {
-      "type": "boolean"
-    },
-    "clarificationQuestion": {
-      "type": [
-        "string",
-        "null"
-      ]
-    }
+formSchema = [
+  {
+    name: "fullName",
+    label: "Full Name",
+    type: "text",
+    required: true,
+    placeholder: "Enter full name",
   },
-  "additionalProperties": false
-}
+  {
+    name: "department",
+    label: "Department",
+    type: "select",
+    required: true,
+    placeholder: "Select department",
+    options: ["Sales", "Marketing", "Finance", "HR"],
+  },
+  {
+    name: "jobTitle",
+    label: "Job Title",
+    type: "text",
+    required: true,
+    placeholder: "Enter job title",
+  },
+  {
+    name: "employmentType",
+    label: "Employment Type",
+    type: "select",
+    required: true,
+    placeholder: "Select employment type",
+    options: ["Full-time", "Part-time", "Contract", "Intern"],
+  },
+  {
+    name: "startDate",
+    label: "Start Date",
+    type: "date",
+    required: true,
+  },
+  {
+    name: "dateOfBirth",
+    label: "Date of Birth",
+    type: "date",
+  },
+  {
+    name: "salary",
+    label: "Salary",
+    type: "number",
+    placeholder: "Enter salary",
+  },
+  {
+    name: "workEmail",
+    label: "Work Email",
+    type: "email",
+    placeholder: "name@company.com",
+  },
+  {
+    name: "phoneNumber",
+    label: "Phone Number",
+    type: "tel",
+    placeholder: "Enter phone number",
+  },
+  {
+    name: "city",
+    label: "City",
+    type: "text",
+    placeholder: "Enter city",
+  },
+];
