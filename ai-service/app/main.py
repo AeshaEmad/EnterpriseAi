@@ -24,4 +24,4 @@ def create_extractor() -> Extractor:
     )
 
 
-if __name__ == "__main__":
+# if __name__ == "__main__":
