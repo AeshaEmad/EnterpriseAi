@@ -1,7 +1,7 @@
 # API Contracts — EnterpriseAI
 
 Version: 1.1
-Audience: Backend, AI (Ahmed), Frontend team
+Audience: Backend, AI, Frontend team
 
 Base URLs (dev):
 - .NET Backend: `https://localhost:7000/api` (see `launchSettings.json`)
@@ -34,7 +34,7 @@ Ollama / Qwen3
 
 ---
 
-## 1. AI Service Contract (Ahmed)
+## 1. AI Service Contract 
 
 The AI service is called by the **.NET Backend**, not by the frontend.
 
