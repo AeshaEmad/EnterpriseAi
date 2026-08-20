@@ -36,6 +36,7 @@ def create_extractor() -> Extractor:
     )
 
 
+ feature/ai-service
 extractor = create_extractor()
 
 
@@ -51,3 +52,6 @@ def extract(request: ExtractionRequest):
     )
 
     return result
+
+if __name__ == "__main__":
+ main
