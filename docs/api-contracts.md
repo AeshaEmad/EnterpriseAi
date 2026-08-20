@@ -181,7 +181,49 @@ All endpoints require `Authorization: Bearer <token>` except `POST /api/auth/log
 |---|---|---|---|
 | POST | `/api/auth/login` | `{ email, password }` | `{ token, expiresAt, user }` |
 
-### 2.2 Forms
+### 2.2 Users (Admin only)
+
+| Method | Route | Auth | Body | Returns |
+|---|---|---|---|---|
+| GET | `/api/users` | Admin | — | `UserDto[]` |
+| GET | `/api/users/{id}` | Admin | — | `UserDto` |
+| POST | `/api/users` | Admin | `CreateUserDto` | `UserDto` |
+| PUT | `/api/users/{id}` | Admin | `UpdateUserDto` | `UserDto` |
+| DELETE | `/api/users/{id}` | Admin | — | 204 |
+
+`CreateUserDto`:
+```json
+{
+  "fullName": "Ahmed Adel",
+  "email": "ahmed@enterpriseai.dev",
+  "password": "Ahmed@123",
+  "role": "User"
+}
+```
+
+`UpdateUserDto`:
+```json
+{
+  "fullName": "Ahmed Adel",
+  "role": "User",
+  "isActive": true
+}
+```
+
+`UserDto`:
+```json
+{
+  "id": "u-001",
+  "fullName": "Ahmed Adel",
+  "email": "ahmed@enterpriseai.dev",
+  "role": "User",
+  "isActive": true,
+  "createdAt": "2026-08-17T10:00:00Z",
+  "updatedAt": "2026-08-17T10:00:00Z"
+}
+```
+
+### 2.3 Forms
 
 | Method | Route | Auth | Body | Returns |
 |---|---|---|---|---|
@@ -209,30 +251,73 @@ Draft → PendingApproval → Published (active)
 - **Published**: Active version; used by submissions. Previous active version is automatically deactivated.
 - **Rejected**: Admin can edit and resubmit.
 
-### 2.3 Business Rules (Admin rule-builder UI)
+### 2.4 Business Rules (Admin rule-builder UI)
 
-| Method | Route | Body | Returns |
-|---|---|---|---|
-| POST | `/api/business-rules` | `CreateBusinessRuleDto` | `BusinessRuleDto` |
-| GET | `/api/business-rules?formId={id}` | — | `BusinessRuleDto[]` |
-| PUT | `/api/business-rules/{id}` | `UpdateBusinessRuleDto` | `BusinessRuleDto` |
-| DELETE | `/api/business-rules/{id}` | — | 204 |
+| Method | Route | Auth | Body | Returns |
+|---|---|---|---|---|
+| POST | `/api/business-rules` | Admin | `CreateBusinessRuleDto` | `BusinessRuleDto` |
+| GET | `/api/business-rules?formId={id}` | User | — | `BusinessRuleDto[]` |
+| PUT | `/api/business-rules/{id}` | Admin | `UpdateBusinessRuleDto` | `BusinessRuleDto` |
+| DELETE | `/api/business-rules/{id}` | Admin | — | 204 |
 
 `CreateBusinessRuleDto`:
 
 ```json
 {
   "formId": "f-001",
+  "formVersionId": "fv-001",
   "name": "Max Loan Amount",
   "description": "Loan cannot exceed 300,000 EGP",
   "ruleType": "field_value",
   "priority": 10,
+  "isActive": true,
   "definition": {
     "field": "requestedLoan",
     "operator": "<=",
     "value": 300000,
     "message": "Requested loan amount exceeds the maximum limit allowed for this customer category."
   }
+}
+```
+
+`UpdateBusinessRuleDto`:
+
+```json
+{
+  "name": "Max Loan Amount",
+  "description": "Loan cannot exceed 300,000 EGP",
+  "ruleType": "field_value",
+  "priority": 10,
+  "isActive": true,
+  "definition": {
+    "field": "requestedLoan",
+    "operator": "<=",
+    "value": 300000,
+    "message": "Requested loan amount exceeds the maximum limit allowed for this customer category."
+  }
+}
+```
+
+`BusinessRuleDto`:
+
+```json
+{
+  "id": "r-001",
+  "formVersionId": "fv-001",
+  "formId": "f-001",
+  "name": "Max Loan Amount",
+  "description": "Loan cannot exceed 300,000 EGP",
+  "ruleType": "field_value",
+  "definition": {
+    "field": "requestedLoan",
+    "operator": "<=",
+    "value": 300000,
+    "message": "Requested loan amount exceeds the maximum limit allowed for this customer category."
+  },
+  "priority": 10,
+  "isActive": true,
+  "createdAt": "2026-08-17T10:00:00Z",
+  "updatedAt": "2026-08-17T10:00:00Z"
 }
 ```
 
@@ -243,7 +328,7 @@ Supported `ruleType` values (v1):
   - v1 operator: `equals` (a must equal b)
 - `client_limit` — like `field_value` but the value comes from `UserProfileAttribute` via `{ field, operator, clientField, clientAttribute, message }`
 
-### 2.4 Submissions (the live-fill workflow)
+### 2.5 Submissions (the live-fill workflow)
 
 | Method | Route | Body | Returns |
 |---|---|---|---|
