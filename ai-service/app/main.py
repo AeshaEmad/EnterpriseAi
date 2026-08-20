@@ -1,7 +1,19 @@
 from pathlib import Path
 
+from fastapi import FastAPI
+
 from app.extraction.extractor import Extractor
 from app.llm.ollama_client import OllamaClient
+from app.models.extraction import (
+    ExtractionRequest,
+    ExtractionResponse,
+)
+
+
+app = FastAPI(
+    title="EnterpriseAI AI Service",
+    version="1.1",
+)
 
 
 def load_system_prompt() -> str:
@@ -24,4 +36,18 @@ def create_extractor() -> Extractor:
     )
 
 
-# if __name__ == "__main__":
+extractor = create_extractor()
+
+
+@app.post(
+    "/api/v1/extract",
+    response_model=ExtractionResponse,
+)
+def extract(request: ExtractionRequest):
+    result = extractor.extract(
+        form_schema=request.form_schema.model_dump(),
+        user_input=request.user_input,
+        context=request.context.model_dump(),
+    )
+
+    return result

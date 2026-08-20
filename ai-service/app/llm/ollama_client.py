@@ -21,7 +21,7 @@ class OllamaClient:
     def generate(
         self,
         system_prompt: str,
-        user_message: str
+        user_message: str,
     ) -> str:
 
         response = requests.post(
@@ -31,16 +31,19 @@ class OllamaClient:
                 "messages": [
                     {
                         "role": "system",
-                        "content": system_prompt
+                        "content": system_prompt,
                     },
                     {
                         "role": "user",
-                        "content": user_message
-                    }
+                        "content": user_message,
+                    },
                 ],
-                "stream": True
+                "options": {
+                    "temperature": 0,
+                },
+                "stream": False,
             },
-            timeout=600
+            timeout=600,
         )
 
         response.raise_for_status()
