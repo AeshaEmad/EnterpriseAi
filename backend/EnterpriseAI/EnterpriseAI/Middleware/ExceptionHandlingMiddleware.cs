@@ -19,28 +19,29 @@ namespace EnterpriseAI.Middleware
             }
             catch (UnauthorizedAccessException ex)
             {
-                await WriteErrorAsync(context, StatusCodes.Status401Unauthorized, ex.Message);
+                await WriteErrorAsync(context, StatusCodes.Status401Unauthorized, "UNAUTHORIZED", ex.Message);
             }
             catch (InvalidOperationException ex)
             {
-                await WriteErrorAsync(context, StatusCodes.Status409Conflict, ex.Message);
+                await WriteErrorAsync(context, StatusCodes.Status409Conflict, "INVALID_OPERATION", ex.Message);
             }
             catch (KeyNotFoundException ex)
             {
-                await WriteErrorAsync(context, StatusCodes.Status404NotFound, ex.Message);
+                await WriteErrorAsync(context, StatusCodes.Status404NotFound, "NOT_FOUND", ex.Message);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Unhandled exception during request.");
-                await WriteErrorAsync(context, StatusCodes.Status500InternalServerError, "An unexpected error occurred.");
+                await WriteErrorAsync(context, StatusCodes.Status500InternalServerError, "INTERNAL_ERROR", "An unexpected error occurred.");
             }
         }
 
-        private static async Task WriteErrorAsync(HttpContext context, int statusCode, string message)
+        private static async Task WriteErrorAsync(HttpContext context, int statusCode, string code, string message)
         {
             context.Response.StatusCode = statusCode;
             context.Response.ContentType = "application/json";
-            await context.Response.WriteAsJsonAsync(new { message });
+            var response = new ErrorResponseEnvelope(new ErrorResponse(code, message, null));
+            await context.Response.WriteAsJsonAsync(response);
         }
     }
 }

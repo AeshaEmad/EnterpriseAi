@@ -54,4 +54,16 @@ namespace EnterpriseAI.DTOs.Submissions
         IReadOnlyList<FieldErrorDto> FieldErrors,
         IReadOnlyList<RuleResultDto> RuleResults,
         string SubmissionStatus);
+
+    public record ExtractResultDto(
+        IReadOnlyList<SubmissionFieldDto> FilledFields,
+        IReadOnlyList<string> MissingFields,
+        IReadOnlyList<ClarificationDto> Clarifications,
+        string ModelName,
+        string SubmissionId);
+
+    public record ClarificationDto(
+        string Field,
+        string Question,
+        IReadOnlyList<string> Suggestions);
 }

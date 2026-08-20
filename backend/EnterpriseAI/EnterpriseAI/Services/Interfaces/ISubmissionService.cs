@@ -7,5 +7,6 @@ namespace EnterpriseAI.Services.Interfaces
         Task<SubmissionDto> UpdateFieldsAsync(string id, UpdateSubmissionFieldsDto dto, string userId, CancellationToken cancellationToken = default);
         Task<ValidationResultDto> ValidateAsync(string id, CancellationToken cancellationToken = default);
         Task<SubmissionDto?> ConfirmAsync(string id, string userId, CancellationToken cancellationToken = default);
+        Task<ExtractResultDto> ExtractAsync(string id, string userInput, string userId, CancellationToken cancellationToken = default);
     }
 }

@@ -20,6 +20,9 @@ namespace EnterpriseAI.Extensions
             services.AddScoped<ISubmissionService, SubmissionService>();
             services.AddScoped<IBusinessRuleEngine, BusinessRuleEngine>();
 
+            services.Configure<AiServiceSettings>(configuration.GetSection("AiService"));
+            services.AddHttpClient<IAiServiceClient, AiServiceClient>();
+
             return services;
         }
 

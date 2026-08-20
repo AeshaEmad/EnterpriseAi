@@ -23,12 +23,6 @@ namespace EnterpriseAI
             if (app.Environment.IsDevelopment())
             {
                 await DbInitializer.SeedAdminAsync(app.Services);
-                app.MapOpenApi();
-                app.MapScalarApiReference(options =>
-                {
-                    options.WithTitle("EnterpriseAI API")
-                           .WithDefaultHttpClient(Scalar.AspNetCore.ScalarTarget.CSharp, Scalar.AspNetCore.ScalarClient.HttpClient);
-                });
             }
 
             app.UseHttpsRedirection();
@@ -37,6 +31,15 @@ namespace EnterpriseAI
 
             app.UseAuthorization();
 
+            if (app.Environment.IsDevelopment())
+            {
+                app.MapOpenApi();
+                app.MapScalarApiReference(options =>
+                {
+                    options.WithTitle("EnterpriseAI API")
+                           .WithDefaultHttpClient(Scalar.AspNetCore.ScalarTarget.CSharp, Scalar.AspNetCore.ScalarClient.HttpClient);
+                });
+            }
 
             app.MapControllers();
 

@@ -2,15 +2,52 @@ using System.Text.Json;
 
 namespace EnterpriseAI.Services.Implementations
 {
+    public static class SubmissionStatus
+    {
+        public const string Draft = "Draft";
+        public const string AiFilled = "AI_Filled";
+        public const string UserEdited = "User_Edited";
+        public const string NeedsCorrection = "NeedsCorrection";
+        public const string Validated = "Validated";
+        public const string Confirmed = "Confirmed";
+
+        private static readonly Dictionary<string, HashSet<string>> ValidTransitions = new()
+        {
+            [Draft] = new() { AiFilled, UserEdited, Validated },
+            [AiFilled] = new() { UserEdited, Validated, NeedsCorrection },
+            [UserEdited] = new() { UserEdited, AiFilled, Validated, NeedsCorrection },
+            [NeedsCorrection] = new() { AiFilled, UserEdited, Draft },
+            [Validated] = new() { Confirmed, NeedsCorrection, UserEdited },
+        };
+
+        public static void EnsureTransitionAllowed(string from, string to)
+        {
+            if (from == Confirmed)
+            {
+                throw new InvalidOperationException("A confirmed submission cannot be modified.");
+            }
+
+            if (ValidTransitions.TryGetValue(from, out var allowed) && allowed.Contains(to))
+            {
+                return;
+            }
+
+            throw new InvalidOperationException(
+                $"Invalid status transition from '{from}' to '{to}'.");
+        }
+    }
+
     public class SubmissionService : ISubmissionService
     {
         private readonly AppDbContext _db;
         private readonly IBusinessRuleEngine _ruleEngine;
+        private readonly IAiServiceClient _aiClient;
 
-        public SubmissionService(AppDbContext db, IBusinessRuleEngine ruleEngine)
+        public SubmissionService(AppDbContext db, IBusinessRuleEngine ruleEngine, IAiServiceClient aiClient)
         {
             _db = db;
             _ruleEngine = ruleEngine;
+            _aiClient = aiClient;
         }
 
         public async Task<SubmissionDto> CreateAsync(CreateSubmissionDto dto, string userId, CancellationToken cancellationToken = default)
@@ -85,10 +122,11 @@ namespace EnterpriseAI.Services.Implementations
                 throw new KeyNotFoundException("Submission not found.");
             }
 
-            if (submission.Status == SubmissionStatus.Confirmed)
-            {
-                throw new InvalidOperationException("A confirmed submission cannot be edited.");
-            }
+            var targetStatus = dto.Values.Any(v => v.Source == SubmissionSource.User)
+                ? SubmissionStatus.UserEdited
+                : SubmissionStatus.AiFilled;
+
+            SubmissionStatus.EnsureTransitionAllowed(submission.Status, targetStatus);
 
             var fields = await _db.FormFields
                 .AsNoTracking()
@@ -100,16 +138,12 @@ namespace EnterpriseAI.Services.Implementations
                 .Where(f => f.FormField != null)
                 .ToDictionary(f => f.FormField!.FieldName, f => f);
 
-            var seenSources = new HashSet<string>();
-
             foreach (var value in dto.Values)
             {
                 if (!byName.TryGetValue(value.Name, out var formField))
                 {
                     continue;
                 }
-
-                seenSources.Add(value.Source);
 
                 if (existingByName.TryGetValue(value.Name, out var existing))
                 {
@@ -126,17 +160,165 @@ namespace EnterpriseAI.Services.Implementations
                 }
             }
 
-            submission.Status = seenSources.Contains(SubmissionSource.User)
-                ? SubmissionStatus.UserEdited
-                : seenSources.Contains(SubmissionSource.Ai)
-                    ? SubmissionStatus.AiFilled
-                    : SubmissionStatus.Draft;
+            submission.Status = targetStatus;
             submission.UpdatedAt = DateTime.UtcNow;
             _db.FormSubmissions.Update(submission);
 
             await _db.SaveChangesAsync(cancellationToken);
 
             return (await LoadSubmissionAsync(id, cancellationToken))!.ToDto(submission.FormVersion?.FormId ?? string.Empty);
+        }
+
+        public async Task<ExtractResultDto> ExtractAsync(string id, string userInput, string userId, CancellationToken cancellationToken = default)
+        {
+            var submission = await LoadSubmissionAsync(id, cancellationToken);
+            if (submission is null)
+            {
+                throw new KeyNotFoundException("Submission not found.");
+            }
+
+            SubmissionStatus.EnsureTransitionAllowed(submission.Status, SubmissionStatus.AiFilled);
+
+            var version = await _db.FormVersions
+                .AsNoTracking()
+                .Include(v => v.Fields.OrderBy(f => f.DisplayOrder))
+                .FirstOrDefaultAsync(v => v.Id == submission.FormVersionId, cancellationToken);
+
+            if (version is null)
+            {
+                throw new KeyNotFoundException("Form version not found.");
+            }
+
+            var form = await _db.Forms
+                .AsNoTracking()
+                .FirstOrDefaultAsync(f => f.Id == version.FormId, cancellationToken);
+
+            var conversationHistory = await _db.ConversationMessages
+                .AsNoTracking()
+                .Where(m => m.SubmissionId == id)
+                .OrderBy(m => m.SequenceNumber)
+                .Select(m => new AiConversationTurn(m.Role, m.Content))
+                .ToListAsync(cancellationToken);
+
+            var sequenceNumber = conversationHistory.Count + 1;
+
+            _db.ConversationMessages.Add(new ConversationMessage
+            {
+                Id = Guid.NewGuid().ToString(),
+                SubmissionId = id,
+                Role = "user",
+                MessageType = "text",
+                Content = userInput,
+                SequenceNumber = sequenceNumber,
+                CreatedAt = DateTime.UtcNow
+            });
+            await _db.SaveChangesAsync(cancellationToken);
+
+            var schemaDto = form is not null
+                ? form.ToSchemaDto(version)
+                : new FormSchemaDto(version.FormId, string.Empty, version.Id, version.VersionNumber, new List<FormSchemaFieldDto>());
+
+            var aiRequest = new AiExtractRequest
+            {
+                FormSchema = schemaDto,
+                UserInput = userInput,
+                Context = new AiExtractContext
+                {
+                    ExistingValues = submission.SubmissionFields
+                        .Where(f => f.Value is not null)
+                        .ToDictionary(f => f.FormField?.FieldName ?? string.Empty, f => f.Value),
+                    Conversation = conversationHistory
+                }
+            };
+
+            var aiResponse = await _aiClient.ExtractAsync(aiRequest, cancellationToken);
+
+            _db.AIAnalyses.Add(new AIAnalysis
+            {
+                Id = Guid.NewGuid().ToString(),
+                SubmissionId = id,
+                ModelName = aiResponse.ModelName,
+                Status = "Completed",
+                AnalysisResult = JsonSerializer.SerializeToNode(aiResponse.Values),
+                MissingFields = JsonSerializer.SerializeToNode(aiResponse.MissingFields),
+                AmbiguousFields = JsonSerializer.SerializeToNode(aiResponse.Clarifications),
+                CreatedAt = DateTime.UtcNow
+            });
+
+            _db.ConversationMessages.Add(new ConversationMessage
+            {
+                Id = Guid.NewGuid().ToString(),
+                SubmissionId = id,
+                Role = "assistant",
+                MessageType = "ai_extraction",
+                Content = JsonSerializer.Serialize(aiResponse),
+                SequenceNumber = sequenceNumber + 1,
+                CreatedAt = DateTime.UtcNow
+            });
+
+            var fields = await _db.FormFields
+                .AsNoTracking()
+                .Where(f => f.FormVersionId == submission.FormVersionId)
+                .ToListAsync(cancellationToken);
+
+            var byName = fields.ToDictionary(f => f.FieldName, f => f);
+            var existingByName = submission.SubmissionFields
+                .Where(f => f.FormField != null)
+                .ToDictionary(f => f.FormField!.FieldName, f => f);
+
+            var filledFields = new List<SubmissionFieldDto>();
+
+            foreach (var kvp in aiResponse.Values)
+            {
+                if (!byName.TryGetValue(kvp.Key, out var formField))
+                {
+                    continue;
+                }
+
+                if (existingByName.TryGetValue(kvp.Key, out var existing))
+                {
+                    RecordHistory(existing, existing.Value, kvp.Value.Value, "ai", userId);
+                    existing.Value = kvp.Value.Value;
+                    existing.Source = "ai";
+                    existing.ConfidenceScore = kvp.Value.Confidence;
+                    existing.UpdatedAt = DateTime.UtcNow;
+                    _db.SubmissionFields.Update(existing);
+                }
+                else
+                {
+                    var newField = new SubmissionField
+                    {
+                        Id = Guid.NewGuid().ToString(),
+                        SubmissionId = id,
+                        FormFieldId = formField.Id,
+                        Value = kvp.Value.Value,
+                        Source = "ai",
+                        ConfidenceScore = kvp.Value.Confidence,
+                        IsConfirmed = false,
+                        CreatedAt = DateTime.UtcNow,
+                        UpdatedAt = DateTime.UtcNow
+                    };
+                    _db.SubmissionFields.Add(newField);
+                    existingByName[kvp.Key] = newField;
+                }
+
+                filledFields.Add(new SubmissionFieldDto(
+                    formField.Id, kvp.Key, formField.FieldLabel,
+                    kvp.Value.Value, "ai", kvp.Value.Confidence, false));
+            }
+
+            submission.Status = SubmissionStatus.AiFilled;
+            submission.UpdatedAt = DateTime.UtcNow;
+            _db.FormSubmissions.Update(submission);
+
+            await _db.SaveChangesAsync(cancellationToken);
+
+            return new ExtractResultDto(
+                filledFields,
+                aiResponse.MissingFields,
+                aiResponse.Clarifications.Select(c => new ClarificationDto(c.Field, c.Question, c.Suggestions)).ToList(),
+                aiResponse.ModelName,
+                id);
         }
 
         public async Task<ValidationResultDto> ValidateAsync(string id, CancellationToken cancellationToken = default)
@@ -171,7 +353,10 @@ namespace EnterpriseAI.Services.Implementations
 
             var valid = fieldErrors.Count == 0 && ruleResults.Count == 0;
 
-            submission.Status = valid ? SubmissionStatus.Validated : SubmissionStatus.NeedsCorrection;
+            var targetStatus = valid ? SubmissionStatus.Validated : SubmissionStatus.NeedsCorrection;
+            SubmissionStatus.EnsureTransitionAllowed(submission.Status, targetStatus);
+
+            submission.Status = targetStatus;
             submission.UpdatedAt = DateTime.UtcNow;
             _db.FormSubmissions.Update(submission);
             await _db.SaveChangesAsync(cancellationToken);
@@ -191,10 +376,7 @@ namespace EnterpriseAI.Services.Implementations
                 throw new KeyNotFoundException("Submission not found.");
             }
 
-            if (submission.Status != SubmissionStatus.Validated)
-            {
-                throw new InvalidOperationException("Submission must pass validation before confirmation.");
-            }
+            SubmissionStatus.EnsureTransitionAllowed(submission.Status, SubmissionStatus.Confirmed);
 
             submission.Status = SubmissionStatus.Confirmed;
             submission.SubmittedAt = DateTime.UtcNow;
@@ -219,7 +401,6 @@ namespace EnterpriseAI.Services.Implementations
         private List<FieldErrorDto> ValidateFields(FormSubmission submission, List<BusinessRule> rules)
         {
             var errors = new List<FieldErrorDto>();
-            var fields = submission.SubmissionFields.ToDictionary(f => f.FormField?.FieldName ?? string.Empty, f => f);
 
             foreach (var field in submission.SubmissionFields.Where(f => f.FormField is not null))
             {
@@ -312,16 +493,6 @@ namespace EnterpriseAI.Services.Implementations
             }
 
             return null;
-        }
-
-        private static class SubmissionStatus
-        {
-            public const string Draft = "Draft";
-            public const string AiFilled = "AI_Filled";
-            public const string UserEdited = "User_Edited";
-            public const string NeedsCorrection = "NeedsCorrection";
-            public const string Validated = "Validated";
-            public const string Confirmed = "Confirmed";
         }
 
         private static class SubmissionSource

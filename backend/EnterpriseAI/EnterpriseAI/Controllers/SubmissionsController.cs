@@ -17,9 +17,7 @@ namespace EnterpriseAI.Controllers
             [FromBody] CreateSubmissionDto dto,
             CancellationToken cancellationToken)
         {
-            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)
-                ?? throw new UnauthorizedAccessException("User id claim is missing.");
-
+            var userId = GetUserId();
             var submission = await _submissionService.CreateAsync(dto, userId, cancellationToken);
             return CreatedAtAction(nameof(GetById), new { id = submission.Id }, submission);
         }
@@ -31,15 +29,24 @@ namespace EnterpriseAI.Controllers
             return submission is null ? NotFound() : Ok(submission);
         }
 
+        [HttpPost("{id}/extract")]
+        public async Task<ActionResult<ExtractResultDto>> Extract(
+            string id,
+            [FromBody] ExtractUserInputDto dto,
+            CancellationToken cancellationToken)
+        {
+            var userId = GetUserId();
+            var result = await _submissionService.ExtractAsync(id, dto.UserInput, userId, cancellationToken);
+            return Ok(result);
+        }
+
         [HttpPut("{id}/fields")]
         public async Task<ActionResult<SubmissionDto>> UpdateFields(
             string id,
             [FromBody] UpdateSubmissionFieldsDto dto,
             CancellationToken cancellationToken)
         {
-            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)
-                ?? throw new UnauthorizedAccessException("User id claim is missing.");
-
+            var userId = GetUserId();
             var submission = await _submissionService.UpdateFieldsAsync(id, dto, userId, cancellationToken);
             return Ok(submission);
         }
@@ -54,11 +61,17 @@ namespace EnterpriseAI.Controllers
         [HttpPost("{id}/confirm")]
         public async Task<ActionResult<SubmissionDto>> Confirm(string id, CancellationToken cancellationToken)
         {
-            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)
-                ?? throw new UnauthorizedAccessException("User id claim is missing.");
-
+            var userId = GetUserId();
             var submission = await _submissionService.ConfirmAsync(id, userId, cancellationToken);
             return submission is null ? NotFound() : Ok(submission);
         }
+
+        private string GetUserId()
+        {
+            return User.FindFirstValue(ClaimTypes.NameIdentifier)
+                ?? throw new UnauthorizedAccessException("User id claim is missing.");
+        }
     }
+
+    public record ExtractUserInputDto(string UserInput);
 }
