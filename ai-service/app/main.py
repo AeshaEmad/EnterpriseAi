@@ -1,5 +1,6 @@
 from pathlib import Path
 
+import uvicorn
 from fastapi import FastAPI
 
 from app.extraction.extractor import Extractor
@@ -36,7 +37,6 @@ def create_extractor() -> Extractor:
     )
 
 
- feature/ai-service
 extractor = create_extractor()
 
 
@@ -53,5 +53,6 @@ def extract(request: ExtractionRequest):
 
     return result
 
+
 if __name__ == "__main__":
- main
+    uvicorn.run(app, host="0.0.0.0", port=8000)
