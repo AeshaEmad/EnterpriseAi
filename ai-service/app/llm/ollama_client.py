@@ -41,6 +41,8 @@ class OllamaClient:
                 "options": {
                     "temperature": 0,
                 },
+                "format": "json",
+                "think": False,
                 "stream": False,
             },
             timeout=600,

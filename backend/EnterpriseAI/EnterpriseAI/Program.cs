@@ -30,6 +30,16 @@ namespace EnterpriseAI
 
             var app = builder.Build();
 
+            if (string.Equals(
+                builder.Configuration["DatabaseProvider"],
+                "Sqlite",
+                StringComparison.OrdinalIgnoreCase))
+            {
+                using var scope = app.Services.CreateScope();
+                var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                await db.Database.EnsureCreatedAsync();
+            }
+
             // Configure the HTTP request pipeline.
             app.UseMiddleware<ExceptionHandlingMiddleware>();
 

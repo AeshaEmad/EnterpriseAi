@@ -5,7 +5,20 @@ namespace EnterpriseAI.Extensions
         public static IServiceCollection AddApplicationServices(this IServiceCollection services, IConfiguration configuration)
         {
             services.AddDbContext<AppDbContext>(options =>
-                options.UseSqlServer(configuration.GetConnectionString("DefaultConnection")));
+            {
+                var connectionString = configuration.GetConnectionString("DefaultConnection");
+                if (string.Equals(
+                    configuration["DatabaseProvider"],
+                    "Sqlite",
+                    StringComparison.OrdinalIgnoreCase))
+                {
+                    options.UseSqlite(connectionString);
+                }
+                else
+                {
+                    options.UseSqlServer(connectionString);
+                }
+            });
 
             services.AddScoped(typeof(IReadRepository<>), typeof(Repository<>));
             services.AddScoped(typeof(IWriteRepository<>), typeof(Repository<>));
