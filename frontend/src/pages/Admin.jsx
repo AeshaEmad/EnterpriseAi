@@ -2,9 +2,11 @@ import { useState, useEffect } from "react";
 import Header from "../components/layout/Header";
 import Button from "../components/common/Button";
 import {
+  createForm,
+  createFormVersion,
+  getForm,
+  getForms,
   getFormSchema,
-  saveFormSchema,
-  clearSchemaCache,
 } from "../services/formSchema";
 
 const FIELD_TYPES = [
@@ -32,21 +34,42 @@ function Admin({ user, onLogout, onBack }) {
   const [message, setMessage] = useState("");
   const [editingOptions, setEditingOptions] = useState(null);
   const [optionInput, setOptionInput] = useState("");
+  const [formInfo, setFormInfo] = useState(null);
+  const [formName, setFormName] = useState("");
+  const [formDescription, setFormDescription] = useState("");
 
   useEffect(() => {
     let cancelled = false;
 
     async function load() {
-      const schema = await getFormSchema();
+      try {
+        const forms = await getForms();
+        const selectedForm = forms.find((form) => form.isActive) || forms[0];
+        if (!selectedForm) return;
+        const details = await getForm(selectedForm.id);
+        if (cancelled) return;
+        if (details.versions.length === 0) {
+          setFormInfo({
+            formId: details.id,
+            formName: details.name,
+            versionNumber: 0,
+          });
+          return;
+        }
+        const schema = await getFormSchema(selectedForm.id);
 
-      if (!cancelled) {
+        if (cancelled) return;
+        setFormInfo(schema);
         setFields(
-          schema.map((f) => ({
+          schema.fields.map((f) => ({
             ...f,
             options: f.options || [],
           }))
         );
-        setLoading(false);
+      } catch (error) {
+        if (!cancelled) setMessage(error.message);
+      } finally {
+        if (!cancelled) setLoading(false);
       }
     }
 
@@ -116,13 +139,35 @@ function Admin({ user, onLogout, onBack }) {
     setSaving(true);
     setMessage("");
 
-    const result = await saveFormSchema(fields);
+    try {
+      if (fields.length === 0) throw new Error("Add at least one field.");
+      if (fields.some((field) => !field.name.trim() || !field.label.trim())) {
+        throw new Error("Every field must have a name and label.");
+      }
 
-    if (result.error) {
-      setMessage(result.error);
-    } else {
-      clearSchemaCache();
-      setMessage("Form schema saved successfully.");
+      let targetForm = formInfo;
+      if (!targetForm) {
+        if (!formName.trim()) throw new Error("Form name is required.");
+        const created = await createForm(formName.trim(), formDescription.trim());
+        targetForm = {
+          formId: created.id,
+          formName: created.name,
+          versionNumber: 0,
+        };
+      }
+
+      await createFormVersion(
+        targetForm.formId,
+        targetForm.versionNumber + 1,
+        fields
+      );
+      setFormInfo({
+        ...targetForm,
+        versionNumber: targetForm.versionNumber + 1,
+      });
+      setMessage("New schema version submitted for approval successfully.");
+    } catch (error) {
+      setMessage(error.message);
     }
 
     setSaving(false);
@@ -147,10 +192,9 @@ function Admin({ user, onLogout, onBack }) {
         <div className="admin-top">
           <div>
             <span className="eyebrow">ADMIN</span>
-            <h2>Form Schema Builder</h2>
+            <h2>{formInfo?.formName || "Form Schema Builder"}</h2>
             <p className="admin-subtitle">
-              Define the fields that appear in the employee
-              form.
+              Saving creates a new version and submits it for approval.
             </p>
           </div>
 
@@ -158,7 +202,7 @@ function Admin({ user, onLogout, onBack }) {
             {message && (
               <span
                 className={`admin-message ${
-                  message.includes("success")
+                  message.toLowerCase().includes("success")
                     ? "success"
                     : "error"
                 }`}
@@ -180,6 +224,34 @@ function Admin({ user, onLogout, onBack }) {
         </div>
 
         <div className="admin-fields">
+          {!formInfo && (
+            <div className="admin-field-card">
+              <div className="admin-field-header">
+                <span className="admin-field-num">FORM DETAILS</span>
+              </div>
+              <div className="admin-field-grid">
+                <div className="admin-field-group">
+                  <label>Form Name</label>
+                  <input
+                    type="text"
+                    value={formName}
+                    onChange={(event) => setFormName(event.target.value)}
+                    placeholder="e.g. Employee Onboarding"
+                  />
+                </div>
+                <div className="admin-field-group">
+                  <label>Description</label>
+                  <input
+                    type="text"
+                    value={formDescription}
+                    onChange={(event) => setFormDescription(event.target.value)}
+                    placeholder="What this form is used for"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
           {fields.map((field, index) => (
             <div className="admin-field-card" key={index}>
               <div className="admin-field-header">

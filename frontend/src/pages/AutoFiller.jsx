@@ -2,7 +2,13 @@ import { useState, useEffect } from "react";
 import Header from "../components/layout/Header";
 import ChatPanel from "../components/chat/ChatPanel";
 import FormRenderer from "../components/form/FormRenderer";
-import { getFormSchema } from "../services/formSchema";
+import { getForms, getFormSchema } from "../services/formSchema";
+import {
+  confirmSubmission,
+  createSubmission,
+  updateSubmissionFields,
+  validateSubmission,
+} from "../services/submissions";
 
 function AutoFiller({ user, onLogout, onBack }) {
   const [schema, setSchema] = useState([]);
@@ -10,23 +16,38 @@ function AutoFiller({ user, onLogout, onBack }) {
   const [fieldSources, setFieldSources] = useState({});
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [submissionId, setSubmissionId] = useState(null);
+  const [formInfo, setFormInfo] = useState(null);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     let cancelled = false;
 
     async function load() {
-      const fields = await getFormSchema();
+      try {
+        const forms = await getForms();
+        const selectedForm = forms.find((form) => form.isActive) || forms[0];
+        if (!selectedForm) throw new Error("No forms are available yet.");
 
-      if (!cancelled) {
-        setSchema(fields);
+        const schemaData = await getFormSchema(selectedForm.id);
+        const submission = await createSubmission(selectedForm.id);
 
-        const initial = fields.reduce((data, field) => {
+        if (cancelled) return;
+        setFormInfo(schemaData);
+        setSchema(schemaData.fields);
+        setSubmissionId(submission.id);
+
+        const initial = schemaData.fields.reduce((data, field) => {
           data[field.name] = "";
           return data;
         }, {});
 
         setFormData(initial);
-        setLoading(false);
+      } catch (loadError) {
+        if (!cancelled) setError(loadError.message);
+      } finally {
+        if (!cancelled) setLoading(false);
       }
     }
 
@@ -54,23 +75,47 @@ function AutoFiller({ user, onLogout, onBack }) {
     });
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     const filledFields = schema.filter(
       (field) => formData[field.name]
     );
 
-    if (filledFields.length === 0) return;
+    if (filledFields.length === 0 || !submissionId || submitting) return;
 
-    const entry = {
-      id: Date.now(),
-      timestamp: Date.now(),
-      title: "Submitted form",
-      fields: filledFields.map((f) => f.name),
-      data: { ...formData },
-    };
+    setSubmitting(true);
+    setError("");
 
-    setHistory((prev) => [entry, ...prev]);
-    handleClear();
+    try {
+      await updateSubmissionFields(submissionId, formData, fieldSources);
+      const validation = await validateSubmission(submissionId);
+
+      if (!validation.valid) {
+        const messages = [
+          ...validation.fieldErrors.map((item) => item.message),
+          ...validation.ruleResults.map((item) => item.message),
+        ];
+        throw new Error(messages.join(" ") || "Please correct the form fields.");
+      }
+
+      const confirmed = await confirmSubmission(submissionId);
+
+      const entry = {
+        id: confirmed.id,
+        timestamp: confirmed.submittedAt,
+        title: `${formInfo?.formName || "Form"} submitted`,
+        fields: filledFields.map((f) => f.name),
+        data: { ...formData },
+      };
+
+      setHistory((prev) => [entry, ...prev]);
+      const nextSubmission = await createSubmission(formInfo.formId);
+      setSubmissionId(nextSubmission.id);
+      handleClear();
+    } catch (submitError) {
+      setError(submitError.message);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleClear = () => {
@@ -98,6 +143,17 @@ function AutoFiller({ user, onLogout, onBack }) {
     );
   }
 
+  if (error && !submissionId) {
+    return (
+      <div className="autofiller-page">
+        <Header user={user} onLogout={onLogout} onBack={onBack} />
+        <div className="demo-content">
+          <div className="loading-state form-error">{error}</div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="autofiller-page">
       <Header user={user} onLogout={onLogout} onBack={onBack} />
@@ -105,6 +161,7 @@ function AutoFiller({ user, onLogout, onBack }) {
       <div className="demo-content">
         <ChatPanel
           schema={schema}
+          submissionId={submissionId}
           onFormUpdate={(data) => {
             handleFormUpdate(data, "ai");
           }}
@@ -117,6 +174,9 @@ function AutoFiller({ user, onLogout, onBack }) {
           schema={schema}
           onRestoreHistory={restoreHistory}
           onSubmit={handleSubmit}
+          submitting={submitting}
+          error={error}
+          title={formInfo?.formName}
           onClear={handleClear}
           onFormUpdate={(data) => {
             handleFormUpdate(data, "user");

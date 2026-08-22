@@ -13,6 +13,9 @@ function FormRenderer({
   history = [],
   onRestoreHistory,
   schema = formSchema,
+  submitting = false,
+  error = "",
+  title = "Employee Form",
 }) {
   const [activeTab, setActiveTab] = useState("form");
   const requiredFields = schema
@@ -40,7 +43,7 @@ function FormRenderer({
       <div className="form-top">
         <div>
           <span className="eyebrow">HR</span>
-          <h2>Employee Form</h2>
+          <h2>{title}</h2>
         </div>
 
         <div className="form-stats">
@@ -117,12 +120,14 @@ function FormRenderer({
           </div>
 
           <div className="form-actions">
+            {error && <div className="form-error">{error}</div>}
             <button
               className="btn primary"
               type="button"
               onClick={onSubmit}
+              disabled={submitting}
             >
-              Submit
+              {submitting ? "Submitting..." : "Submit"}
             </button>
             <button
               className="btn secondary"

@@ -1,13 +1,13 @@
 import { useState } from "react";
 import ChatMessage from "./ChatMessage";
 import ChatInput from "./ChatInput";
-import { post } from "../../services/api";
+import { extractSubmission } from "../../services/submissions";
 import localFormSchema from "../../config/formSchema";
 
 const capitalize = (word) =>
   word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
 
-function extractAfterKeywords(message, keywords, schema) {
+function extractAfterKeywords(message, keywords) {
   for (const kw of keywords) {
     const regex = new RegExp(`(?:^|\\s)${kw.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?:\\s|$)`, "ig");
     let match;
@@ -180,7 +180,7 @@ function detectFormDataLocal(message, schema) {
     const jobTitle = extractAfterKeywords(message, [
       "as", "role", "position", "title", "job title",
       "working as", "hired as", "role of",
-    ], schema);
+    ]);
     if (jobTitle) {
       data.jobTitle = jobTitle;
     }
@@ -195,8 +195,8 @@ function detectFormDataLocal(message, schema) {
 
   if (fieldNames.has("phoneNumber")) {
     const phoneMatch = message.match(
-      /(?:phone|mobile|tel|number|call)\s*[:\-]?\s*([\d\s\-+()]{7,})/i
-    ) || message.match(/(\+?\d{1,3}[\s\-]?\(?\d{2,4}\)?[\s\-]?\d{3,4}[\s\-]?\d{3,4})/);
+      /(?:phone|mobile|tel|number|call)\s*[:-]?\s*([\d\s+()-]{7,})/i
+    ) || message.match(/(\+?\d{1,3}[\s-]?\(?\d{2,4}\)?[\s-]?\d{3,4}[\s-]?\d{3,4})/);
     if (phoneMatch) {
       const raw = phoneMatch[1] || phoneMatch[0];
       const digits = raw.replace(/[^\d+]/g, "");
@@ -226,7 +226,7 @@ function detectFormDataLocal(message, schema) {
       .map((o) => o.toLowerCase());
     const city = extractAfterKeywords(message, [
       "in", "from", "city", "located in", "based in",
-    ], schema);
+    ]);
     if (city && !deptOpts.includes(city.toLowerCase()) && !empOpts.includes(city.toLowerCase())) {
       data.city = city;
     }
@@ -236,7 +236,7 @@ function detectFormDataLocal(message, schema) {
     const dateStr = extractAfterKeywords(message, [
       "starting", "starts", "start date", "start",
       "joining", "joins", "on", "from",
-    ], schema);
+    ]);
     const parsed = parseDate(dateStr) || parseDate(message);
     if (parsed) {
       data.startDate = parsed;
@@ -246,7 +246,7 @@ function detectFormDataLocal(message, schema) {
   if (fieldNames.has("dateOfBirth")) {
     const dobStr = extractAfterKeywords(message, [
       "born", "birth", "date of birth", "dob", "birthday",
-    ], schema);
+    ]);
     const parsed = parseDate(dobStr);
     if (parsed) {
       data.dateOfBirth = parsed;
@@ -256,7 +256,7 @@ function detectFormDataLocal(message, schema) {
   return data;
 }
 
-function ChatPanel({ onFormUpdate, schema }) {
+function ChatPanel({ onFormUpdate, schema, submissionId }) {
   const currentSchema = schema || localFormSchema;
 
   const [messages, setMessages] = useState([
@@ -283,12 +283,12 @@ function ChatPanel({ onFormUpdate, schema }) {
     setLoading(true);
 
     try {
-      const data = await post("/fill-fields", {
-        prompt: userMessage,
-        fields: currentSchema,
-      });
+      if (!submissionId) throw new Error("Submission is not ready yet.");
+      const data = await extractSubmission(submissionId, userMessage);
 
-      const detectedData = data.data || {};
+      const detectedData = Object.fromEntries(
+        (data.filledFields || []).map((field) => [field.name, field.value])
+      );
 
       const fieldLabels = Object.fromEntries(
         currentSchema.map((f) => [f.name, f.label])
@@ -297,13 +297,18 @@ function ChatPanel({ onFormUpdate, schema }) {
         (key) => fieldLabels[key] || key
       );
 
+      const clarificationText = (data.clarifications || [])
+        .map((item) => item.question)
+        .join(" ");
       const aiMessage = {
         id: Date.now() + 1,
         sender: "AI",
         message:
           filledLabels.length > 0
-            ? `I've filled: ${filledLabels.join(", ")}. Review the form and click Submit when ready.`
-            : "Got it! I've understood your request.",
+            ? `I've filled: ${filledLabels.join(", ")}. ${
+                clarificationText || "Review the form and click Submit when ready."
+              }`
+            : clarificationText || "No fields were detected. Please add more details.",
       };
 
       setMessages((prev) => [...prev, aiMessage]);
@@ -314,11 +319,10 @@ function ChatPanel({ onFormUpdate, schema }) {
       ) {
         onFormUpdate(detectedData);
       }
-    } catch {
-      const detectedData = detectFormDataLocal(
-        userMessage,
-        currentSchema
-      );
+    } catch (error) {
+      const detectedData = import.meta.env.VITE_ENABLE_LOCAL_AI_FALLBACK === "true"
+        ? detectFormDataLocal(userMessage, currentSchema)
+        : {};
 
       const fieldLabels = Object.fromEntries(
         currentSchema.map((f) => [f.name, f.label])
@@ -333,7 +337,7 @@ function ChatPanel({ onFormUpdate, schema }) {
         message:
           filledLabels.length > 0
             ? `I've filled: ${filledLabels.join(", ")}. Review the form and click Submit when ready.`
-            : "Got it! I've understood your request.",
+            : `I couldn't process that request: ${error.message}`,
       };
 
       setMessages((prev) => [...prev, aiMessage]);

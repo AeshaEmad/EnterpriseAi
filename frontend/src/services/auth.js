@@ -1,73 +1,23 @@
-import { post, get, setToken, clearToken, getToken } from "./api";
+import { post, setToken, clearToken, getToken } from "./api";
 
-const USERS_KEY = "autofiller_users";
-const SESSION_KEY = "autofiller_session";
 const USER_KEY = "autofiller_user";
 
-function getUsers() {
-  try {
-    const raw = localStorage.getItem(USERS_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch {
-    return [];
-  }
-}
-
-function saveUsers(users) {
-  localStorage.setItem(USERS_KEY, JSON.stringify(users));
+function normalizeUser(user) {
+  return user
+    ? { ...user, role: String(user.role || "user").toLowerCase() }
+    : null;
 }
 
 function saveLocalSession(user, token) {
-  localStorage.setItem(SESSION_KEY, user.id || user.email);
-  localStorage.setItem(USER_KEY, JSON.stringify(user));
+  const normalized = normalizeUser(user);
+  localStorage.setItem(USER_KEY, JSON.stringify(normalized));
   if (token) setToken(token);
+  return normalized;
 }
 
 function clearLocalSession() {
-  localStorage.removeItem(SESSION_KEY);
   localStorage.removeItem(USER_KEY);
   clearToken();
-}
-
-export async function register({ fullName, email, password }) {
-  try {
-    const data = await post("/auth/register", {
-      fullName,
-      email,
-      password,
-    });
-
-    if (data.token) {
-      saveLocalSession(data.user, data.token);
-    }
-
-    return { user: data.user };
-  } catch {
-    const users = getUsers();
-
-    if (
-      users.some(
-        (u) =>
-          u.email.toLowerCase() === email.toLowerCase()
-      )
-    ) {
-      return { error: "This email is already registered." };
-    }
-
-    const user = {
-      id: `user_${Date.now()}`,
-      fullName: fullName.trim(),
-      email: email.trim().toLowerCase(),
-      password,
-      role: "user",
-    };
-
-    users.push(user);
-    saveUsers(users);
-    saveLocalSession(user, null);
-
-    return { user };
-  }
 }
 
 export async function login({ email, password }) {
@@ -77,46 +27,20 @@ export async function login({ email, password }) {
       password,
     });
 
-    if (data.token) {
-      saveLocalSession(data.user, data.token);
-    }
-
-    return { user: data.user };
-  } catch {
-    const users = getUsers();
-    const user = users.find(
-      (u) =>
-        u.email.toLowerCase() === email.trim().toLowerCase()
-    );
-
-    if (!user) {
-      return { error: "No account found with this email." };
-    }
-
-    if (user.password !== password) {
-      return { error: "Incorrect password." };
-    }
-
-    saveLocalSession(user, null);
-
-    return { user };
+    return { user: saveLocalSession(data.user, data.token) };
+  } catch (error) {
+    return { error: error.message };
   }
 }
 
-export async function getSessionUser() {
+export function getSessionUser() {
   try {
-    const token = getToken();
-
-    if (!token) {
-      const raw = localStorage.getItem(USER_KEY);
-      return raw ? JSON.parse(raw) : null;
-    }
-
-    const data = await get("/auth/me");
-    return data.user;
-  } catch {
+    if (!getToken()) return null;
     const raw = localStorage.getItem(USER_KEY);
-    return raw ? JSON.parse(raw) : null;
+    return raw ? normalizeUser(JSON.parse(raw)) : null;
+  } catch {
+    clearLocalSession();
+    return null;
   }
 }
 

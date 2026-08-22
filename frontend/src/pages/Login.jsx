@@ -3,7 +3,7 @@ import Input from "../components/common/Input";
 import Button from "../components/common/Button";
 import { login } from "../services/auth";
 
-function Login({ onSuccess, onSwitch }) {
+function Login({ onSuccess }) {
   const [form, setForm] = useState({
     email: "",
     password: "",
@@ -108,10 +108,7 @@ function Login({ onSuccess, onSwitch }) {
       </form>
 
       <p className="auth-switch">
-        Don't have an account?{" "}
-        <button type="button" onClick={onSwitch}>
-          Register
-        </button>
+        Accounts are created by an administrator.
       </p>
     </div>
   );

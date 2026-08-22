@@ -1,31 +1,57 @@
-import { get, put } from "./api";
-import localSchema from "../config/formSchema";
+import { get, post } from "./api";
 
-let cachedSchema = null;
+const normalizeField = (field) => ({
+  name: field.name,
+  label: field.label,
+  type: field.type,
+  required: Boolean(field.required),
+  placeholder: field.defaultValue || "",
+  options: Array.isArray(field.options) ? field.options : [],
+  validation: field.validation || null,
+});
 
-export async function getFormSchema() {
-  if (cachedSchema) return cachedSchema;
-
-  try {
-    const data = await get("/form-schema");
-    cachedSchema = data.fields;
-    return cachedSchema;
-  } catch {
-    cachedSchema = localSchema;
-    return cachedSchema;
-  }
+export function getForms() {
+  return get("/forms");
 }
 
-export async function saveFormSchema(fields) {
-  try {
-    const data = await put("/form-schema", { fields });
-    cachedSchema = data.fields;
-    return { success: true, fields: data.fields };
-  } catch {
-    return { error: "Could not save to server. Try again later." };
-  }
+export function createForm(name, description) {
+  return post("/forms", { name, description });
 }
 
-export function clearSchemaCache() {
-  cachedSchema = null;
+export function getForm(formId) {
+  return get(`/forms/${encodeURIComponent(formId)}`);
+}
+
+export async function getFormSchema(formId) {
+  const data = await get(`/forms/${encodeURIComponent(formId)}/schema`);
+  return { ...data, fields: data.fields.map(normalizeField) };
+}
+
+export async function createFormVersion(formId, versionNumber, fields) {
+  const version = await post(`/forms/${encodeURIComponent(formId)}/versions`, {
+    versionNumber,
+    status: "Draft",
+  });
+
+  for (const [index, field] of fields.entries()) {
+    await post(
+      `/forms/${encodeURIComponent(formId)}/versions/${encodeURIComponent(version.id)}/fields`,
+      {
+        fieldName: field.name,
+        fieldLabel: field.label,
+        fieldType: field.type,
+        isRequired: Boolean(field.required),
+        defaultValue: field.placeholder || null,
+        options: field.type === "select" ? field.options : null,
+        validationRules: field.validation || null,
+        displayOrder: index,
+      }
+    );
+  }
+
+  await post(
+    `/forms/${encodeURIComponent(formId)}/versions/${encodeURIComponent(version.id)}/submit-for-approval`
+  );
+
+  return version;
 }

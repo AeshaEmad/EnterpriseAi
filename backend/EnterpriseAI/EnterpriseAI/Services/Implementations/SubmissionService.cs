@@ -14,7 +14,7 @@ namespace EnterpriseAI.Services.Implementations
         private static readonly Dictionary<string, HashSet<string>> ValidTransitions = new()
         {
             [Draft] = new() { AiFilled, UserEdited, Validated },
-            [AiFilled] = new() { UserEdited, Validated, NeedsCorrection },
+            [AiFilled] = new() { AiFilled, UserEdited, Validated, NeedsCorrection },
             [UserEdited] = new() { UserEdited, AiFilled, Validated, NeedsCorrection },
             [NeedsCorrection] = new() { AiFilled, UserEdited, Draft },
             [Validated] = new() { Confirmed, NeedsCorrection, UserEdited },

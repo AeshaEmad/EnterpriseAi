@@ -4,27 +4,22 @@ import AutoFiller from "./pages/AutoFiller";
 import Home from "./pages/Home";
 import Admin from "./pages/Admin";
 import Login from "./pages/Login";
-import Register from "./pages/Register";
 import { getSessionUser, logout } from "./services/auth";
 
 function App() {
-  const [user, setUser] = useState(null);
-  const [authView, setAuthView] = useState("login");
+  const [user, setUser] = useState(getSessionUser);
   const [view, setView] = useState("home");
-  const [authLoading, setAuthLoading] = useState(true);
 
   useEffect(() => {
-    let cancelled = false;
-
-    getSessionUser().then((u) => {
-      if (!cancelled) {
-        setUser(u);
-        setAuthLoading(false);
-      }
-    });
+    const handleExpired = () => {
+      logout();
+      setUser(null);
+      setView("home");
+    };
+    window.addEventListener("auth:expired", handleExpired);
 
     return () => {
-      cancelled = true;
+      window.removeEventListener("auth:expired", handleExpired);
     };
   }, []);
 
@@ -34,28 +29,10 @@ function App() {
     setView("home");
   };
 
-  if (authLoading) {
-    return (
-      <div className="auth-page">
-        <div className="loading-state">Loading...</div>
-      </div>
-    );
-  }
-
   if (!user) {
     return (
       <div className="auth-page">
-        {authView === "login" ? (
-          <Login
-            onSuccess={setUser}
-            onSwitch={() => setAuthView("register")}
-          />
-        ) : (
-          <Register
-            onSuccess={setUser}
-            onSwitch={() => setAuthView("login")}
-          />
-        )}
+        <Login onSuccess={setUser} />
       </div>
     );
   }

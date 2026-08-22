@@ -1,4 +1,5 @@
-const BASE_URL = "http://localhost:5000/api";
+const BASE_URL = (import.meta.env.VITE_API_BASE_URL || "http://localhost:5000/api")
+  .replace(/\/$/, "");
 
 const TOKEN_KEY = "autofiller_token";
 
@@ -28,22 +29,29 @@ export async function request(endpoint, options = {}) {
     headers["Authorization"] = `Bearer ${token}`;
   }
 
-  const response = await fetch(url, {
-    ...options,
-    headers,
-  });
+  let response;
+
+  try {
+    response = await fetch(url, { ...options, headers });
+  } catch {
+    throw new Error("Cannot connect to the server. Make sure the backend is running.");
+  }
 
   if (response.status === 401) {
     clearToken();
-    window.location.reload();
+    window.dispatchEvent(new Event("auth:expired"));
     throw new Error("Session expired. Please log in again.");
   }
 
-  const data = await response.json();
+  const contentType = response.headers.get("content-type") || "";
+  const data = contentType.includes("application/json")
+    ? await response.json()
+    : null;
 
   if (!response.ok) {
     throw new Error(
-      data.message || data.error || `Request failed (${response.status})`
+      data?.error?.message || data?.message || data?.error ||
+        `Request failed (${response.status})`
     );
   }
 
@@ -66,4 +74,8 @@ export function put(endpoint, body) {
     method: "PUT",
     body: JSON.stringify(body),
   });
+}
+
+export function del(endpoint) {
+  return request(endpoint, { method: "DELETE" });
 }
