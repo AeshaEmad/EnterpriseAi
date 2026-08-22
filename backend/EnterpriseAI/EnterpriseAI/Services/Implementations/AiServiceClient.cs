@@ -63,6 +63,12 @@ namespace EnterpriseAI.Services.Implementations
                 _logger.LogError(ex, "Failed to connect to AI service at {Url}", url);
                 throw new InvalidOperationException("AI service is unreachable. Please ensure the AI service is running.");
             }
+            catch (TaskCanceledException ex) when (!cancellationToken.IsCancellationRequested)
+            {
+                _logger.LogError(ex, "AI service request timed out after {TimeoutSeconds} seconds.", _settings.TimeoutSeconds);
+                throw new InvalidOperationException(
+                    $"AI service timed out after {_settings.TimeoutSeconds} seconds. Please ensure Ollama is running with the configured model.");
+            }
         }
     }
 }

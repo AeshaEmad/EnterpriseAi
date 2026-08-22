@@ -34,7 +34,11 @@ namespace EnterpriseAI.Extensions
             services.AddScoped<IBusinessRuleEngine, BusinessRuleEngine>();
 
             services.Configure<AiServiceSettings>(configuration.GetSection("AiService"));
-            services.AddHttpClient<IAiServiceClient, AiServiceClient>();
+            services.AddHttpClient<IAiServiceClient, AiServiceClient>((serviceProvider, client) =>
+            {
+                var settings = serviceProvider.GetRequiredService<IOptions<AiServiceSettings>>().Value;
+                client.Timeout = TimeSpan.FromSeconds(Math.Max(1, settings.TimeoutSeconds));
+            });
 
             return services;
         }

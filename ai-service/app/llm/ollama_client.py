@@ -15,7 +15,11 @@ class OllamaClient:
 
         self.model = os.getenv(
             "OLLAMA_MODEL",
-            "qwen3:4b"
+            "qwen3:0.6b"
+        )
+
+        self.timeout_seconds = float(
+            os.getenv("OLLAMA_TIMEOUT_SECONDS", "120")
         )
 
     def generate(
@@ -45,7 +49,7 @@ class OllamaClient:
                 "think": False,
                 "stream": False,
             },
-            timeout=600,
+            timeout=self.timeout_seconds,
         )
 
         response.raise_for_status()
