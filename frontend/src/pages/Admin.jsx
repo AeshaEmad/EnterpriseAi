@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import Header from "../components/layout/Header";
 import Button from "../components/common/Button";
+import Modal from "../components/common/Modal";
 import {
   createForm,
   createFormVersion,
@@ -37,6 +38,7 @@ function Admin({ user, onLogout, onBack }) {
   const [formInfo, setFormInfo] = useState(null);
   const [formName, setFormName] = useState("");
   const [formDescription, setFormDescription] = useState("");
+  const [previewOpen, setPreviewOpen] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -212,6 +214,14 @@ function Admin({ user, onLogout, onBack }) {
             )}
 
             <Button onClick={addField}>+ Add Field</Button>
+
+            <Button
+              variant="secondary"
+              onClick={() => setPreviewOpen(true)}
+              disabled={fields.length === 0}
+            >
+              Preview
+            </Button>
 
             <Button
               variant="primary"
@@ -405,6 +415,50 @@ function Admin({ user, onLogout, onBack }) {
           )}
         </div>
       </div>
+
+      {previewOpen && (
+        <Modal
+          title="Form preview"
+          onClose={() => setPreviewOpen(false)}
+        >
+          <div className="admin-preview">
+            <div className="admin-preview-top">
+              <span className="eyebrow">PREVIEW</span>
+              <h3>{formInfo?.formName || formName || "Untitled Form"}</h3>
+            </div>
+
+            <div className="admin-preview-grid">
+              {fields.map((field, index) => (
+                <div className="admin-preview-field" key={`${field.name}-${index}`}>
+                  <label>
+                    {field.label || "Untitled field"}
+                    {field.required && <span className="required">*</span>}
+                  </label>
+
+                  {field.type === "select" ? (
+                    <select defaultValue="">
+                      <option value="">
+                        {field.placeholder || "Select..."}
+                      </option>
+                      {(field.options || []).map((option) => (
+                        <option key={option} value={option}>
+                          {option}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input
+                      type={field.type}
+                      placeholder={field.placeholder}
+                      readOnly
+                    />
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }

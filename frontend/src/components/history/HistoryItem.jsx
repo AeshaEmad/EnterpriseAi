@@ -9,7 +9,15 @@ function HistoryItem({ entry, onView }) {
   const date = new Date(entry.timestamp).toLocaleString();
 
   const details = entry.fields
-    .map((field) => formatFieldName(field))
+    .map((field) => {
+      const meta = entry.meta?.[field] || {};
+      const confidence =
+        typeof meta.confidence === "number"
+          ? ` ${Math.round(meta.confidence * 100)}%`
+          : "";
+
+      return `${formatFieldName(field)} (${meta.source || "saved"}${confidence})`;
+    })
     .join(", ");
 
   return (
@@ -21,7 +29,7 @@ function HistoryItem({ entry, onView }) {
           <div className="history-title">
             <h4>{entry.title}</h4>
 
-            <span className="accepted-badge">Filled</span>
+            <span className="accepted-badge">{entry.status || "Submitted"}</span>
           </div>
 
           <div className="history-details">{details}</div>

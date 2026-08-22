@@ -256,7 +256,83 @@ function detectFormDataLocal(message, schema) {
   return data;
 }
 
-function ChatPanel({ onFormUpdate, schema, submissionId }) {
+const normalizeText = (value) =>
+  String(value || "")
+    .toLowerCase()
+    .replace(/[؟?.,]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+const fieldAliases = {
+  fullName: ["full name", "name", "employee name", "الاسم", "اسم"],
+  department: ["department", "dept", "team", "القسم", "تخصص", "التخصص"],
+  jobTitle: ["job title", "title", "position", "role", "المسمى", "الوظيفة"],
+  employmentType: ["employment type", "type", "نوع التوظيف", "النوع"],
+  startDate: ["start date", "starting", "start", "تاريخ البداية", "البداية"],
+  dateOfBirth: ["date of birth", "dob", "birth", "birthday", "تاريخ الميلاد"],
+  salary: ["salary", "pay", "wage", "المرتب", "الراتب"],
+  workEmail: ["work email", "email", "الايميل", "الإيميل"],
+  phoneNumber: ["phone", "phone number", "mobile", "الموبايل", "التليفون"],
+  city: ["city", "location", "المدينة", "مدينة"],
+};
+
+function detectDirectEditCommand(message, schema) {
+  const normalized = normalizeText(message);
+  const commandWords = [
+    "set", "change", "update", "make", "put",
+    "غير", "غيّر", "خلي", "حط", "عدل", "عدّل",
+  ];
+  const hasCommand = commandWords.some((word) => normalized.includes(word));
+
+  if (!hasCommand) return null;
+
+  for (const field of schema) {
+    const aliases = [
+      field.name,
+      field.label,
+      ...(fieldAliases[field.name] || []),
+    ].map(normalizeText);
+
+    const alias = aliases
+      .filter(Boolean)
+      .sort((a, b) => b.length - a.length)
+      .find((item) => normalized.includes(item));
+
+    if (!alias) continue;
+
+    const escaped = alias.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const valuePatterns = [
+      new RegExp(`${escaped}\\s*(?:to|into|=|:|ل|الى|إلى|يبقى|تبقى)?\\s*(.+)$`, "i"),
+      new RegExp(`(?:to|into|=|:|ل|الى|إلى)\\s*(.+?)\\s+${escaped}$`, "i"),
+    ];
+
+    for (const pattern of valuePatterns) {
+      const match = normalized.match(pattern);
+      if (!match?.[1]) continue;
+
+      const value = match[1]
+        .replace(/^(to|into|=|:|ل|الى|إلى|يبقى|تبقى)\s+/i, "")
+        .trim();
+
+      if (value) {
+        return `Please set ${field.name} to: ${value}`;
+      }
+    }
+  }
+
+  return null;
+}
+
+function getNextMissingField(missingFields, formData, schema) {
+  return (missingFields || []).find((fieldName) => {
+    const value = formData?.[fieldName];
+    const field = schema.find((item) => item.name === fieldName);
+    return field?.required &&
+      (value === null || value === undefined || String(value).trim() === "");
+  }) || (missingFields || [])[0];
+}
+
+function ChatPanel({ onFormUpdate, schema, submissionId, formData = {} }) {
   const currentSchema = schema || localFormSchema;
 
   const [messages, setMessages] = useState([
@@ -270,8 +346,24 @@ function ChatPanel({ onFormUpdate, schema, submissionId }) {
 
   const [loading, setLoading] = useState(false);
 
+  const fieldLabels = Object.fromEntries(
+    currentSchema.map((f) => [f.name, f.label])
+  );
+
+  const handleClarifyResponse = (field, value) => {
+    handleSendMessage(`Please set ${field} to: ${value}`);
+  };
+
+  const handleFieldFocus = (field) => {
+    const fieldInput = document.querySelector(`[data-field-name="${field}"] input, [data-field-name="${field}"] select`);
+    fieldInput?.focus({ preventScroll: false });
+    fieldInput?.scrollIntoView({ behavior: "smooth", block: "center" });
+  };
+
   const handleSendMessage = async (userMessage) => {
     if (loading) return;
+
+    const apiMessage = detectDirectEditCommand(userMessage, currentSchema) || userMessage;
 
     const newUserMessage = {
       id: Date.now(),
@@ -282,72 +374,90 @@ function ChatPanel({ onFormUpdate, schema, submissionId }) {
     setMessages((prev) => [...prev, newUserMessage]);
     setLoading(true);
 
+    const buildMessage = (data, clarifications, missingFields, { text, isFallback }) => {
+      const filledLabels = Object.keys(data).map(
+        (key) => fieldLabels[key] || key
+      );
+      const nextMissing = getNextMissingField(missingFields, formData, currentSchema);
+      const visibleMissing = nextMissing ? [nextMissing] : [];
+      const visibleClarifications = nextMissing
+        ? clarifications.filter(
+            (item) => item.field.toLowerCase() === nextMissing.toLowerCase()
+          ).slice(0, 1)
+        : clarifications.slice(0, 1);
+
+      const summary = text || [
+        filledLabels.length > 0 ? `I've filled: ${filledLabels.join(", ")}.` : "",
+        visibleClarifications.length > 0 ? `Next, please complete ${fieldLabels[nextMissing] || nextMissing}.` : "",
+        filledLabels.length === 0 && visibleClarifications.length === 0 && visibleMissing.length > 0
+          ? "I couldn't detect any details in your message."
+          : "",
+        visibleMissing.length > 0 && filledLabels.length > 0
+          ? "Some required fields are still missing."
+          : "",
+      ]
+        .filter(Boolean)
+        .join(" ");
+
+      return {
+        id: Date.now() + 1,
+        sender: "AI",
+        summary,
+        payload: {
+          missingFields: visibleMissing,
+          clarifications: visibleClarifications,
+          isFallback: !!isFallback,
+        },
+        raw: data,
+      };
+    };
+
     try {
       if (!submissionId) throw new Error("Submission is not ready yet.");
-      const data = await extractSubmission(submissionId, userMessage);
-
-      const detectedData = Object.fromEntries(
+      const data = await extractSubmission(submissionId, apiMessage);
+      const detected = Object.fromEntries(
         (data.filledFields || []).map((field) => [field.name, field.value])
       );
-
-      const fieldLabels = Object.fromEntries(
-        currentSchema.map((f) => [f.name, f.label])
+      const confidence = Object.fromEntries(
+        (data.filledFields || []).map((field) => [
+          field.name,
+          field.confidenceScore ?? 1,
+        ])
       );
-      const filledLabels = Object.keys(detectedData).map(
-        (key) => fieldLabels[key] || key
-      );
-
-      const clarificationText = (data.clarifications || [])
-        .map((item) => item.question)
-        .join(" ");
-      const aiMessage = {
-        id: Date.now() + 1,
-        sender: "AI",
-        message:
-          filledLabels.length > 0
-            ? `I've filled: ${filledLabels.join(", ")}. ${
-                clarificationText || "Review the form and click Submit when ready."
-              }`
-            : clarificationText || "No fields were detected. Please add more details.",
-      };
-
-      setMessages((prev) => [...prev, aiMessage]);
-
-      if (
-        Object.keys(detectedData).length > 0 &&
-        onFormUpdate
-      ) {
-        onFormUpdate(detectedData);
-      }
-    } catch (error) {
-      const detectedData = import.meta.env.VITE_ENABLE_LOCAL_AI_FALLBACK === "true"
+      const fallbackLocal = import.meta.env.VITE_ENABLE_LOCAL_AI_FALLBACK === "true"
         ? detectFormDataLocal(userMessage, currentSchema)
         : {};
+      const filled = Object.keys(detected).length > 0 ? detected : fallbackLocal;
 
-      const fieldLabels = Object.fromEntries(
-        currentSchema.map((f) => [f.name, f.label])
-      );
-      const filledLabels = Object.keys(detectedData).map(
-        (key) => fieldLabels[key] || key
+      const msg = buildMessage(
+        filled,
+        data.clarifications || [],
+        data.missingFields || [],
+        { isFallback: Object.keys(detected).length === 0 && Object.keys(filled).length > 0 }
       );
 
-      const aiMessage = {
+      setMessages((prev) => [...prev, msg]);
+      if (Object.keys(filled).length > 0 && onFormUpdate) {
+        onFormUpdate(filled, confidence);
+      }
+    } catch (error) {
+      const fallbackLocal = import.meta.env.VITE_ENABLE_LOCAL_AI_FALLBACK === "true"
+        ? detectFormDataLocal(userMessage, currentSchema)
+        : {};
+      const msg = {
         id: Date.now() + 1,
         sender: "AI",
-        message:
-          filledLabels.length > 0
-            ? `I've filled: ${filledLabels.join(", ")}. Review the form and click Submit when ready.`
-            : `I couldn't process that request: ${error.message}`,
+        summary: Object.keys(fallbackLocal).length > 0
+          ? `I've filled: ${Object.keys(fallbackLocal).map(k => fieldLabels[k] || k).join(", ")}. Review the form and click Submit when ready.`
+          : `I couldn't process that request: ${error.message}`,
+        payload: {
+          missingFields: [],
+          clarifications: [],
+          isFallback: Object.keys(fallbackLocal).length > 0,
+        },
       };
-
-      setMessages((prev) => [...prev, aiMessage]);
-
-      if (
-        Object.keys(detectedData).length > 0 &&
-        onFormUpdate
-      ) {
-        onFormUpdate(detectedData);
-      }
+      setMessages((prev) => [...prev, msg]);
+      if (Object.keys(fallbackLocal).length > 0 && onFormUpdate) onFormUpdate(fallbackLocal);
     } finally {
       setLoading(false);
     }
@@ -360,19 +470,20 @@ function ChatPanel({ onFormUpdate, schema, submissionId }) {
           <span className="eyebrow">AI FORM ASSISTANT</span>
           <h2>AI Assistant</h2>
         </div>
-
         <span className="ai-badge">AI</span>
       </div>
-
       <div className="chat-messages">
         {messages.map((message) => (
           <ChatMessage
             key={message.id}
             sender={message.sender}
-            message={message.message}
+            message={message.summary ?? message.message}
+            payload={message.payload}
+            schema={currentSchema}
+            onClarify={handleClarifyResponse}
+            onFieldFocus={handleFieldFocus}
           />
         ))}
-
         {loading && (
           <div className="chat-typing">
             <span className="dot"></span>
@@ -381,7 +492,6 @@ function ChatPanel({ onFormUpdate, schema, submissionId }) {
           </div>
         )}
       </div>
-
       <ChatInput onSend={handleSendMessage} disabled={loading} />
     </aside>
   );

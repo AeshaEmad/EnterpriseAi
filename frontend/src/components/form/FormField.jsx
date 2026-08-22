@@ -9,7 +9,9 @@ function FormField({
   placeholder = "—",
   options = [],
   status,
+  confidence,
   onChange,
+  name,
 }) {
   const [prevValue, setPrevValue] = useState(value);
   const [inputValue, setInputValue] = useState(value);
@@ -30,9 +32,17 @@ function FormField({
   };
 
   const isSelect = type === "select";
+  const selectOptions = isSelect ? [...options] : options;
+  const hasCurrentOption = selectOptions.some(
+    (option) => String(option).toLowerCase() === String(inputValue).trim().toLowerCase()
+  );
+
+  if (isSelect && inputValue && !hasCurrentOption) {
+    selectOptions.push(inputValue);
+  }
 
   return (
-    <div className={`form-field ${status || ""}`}>
+    <div className={`form-field ${status || ""}`} data-field-name={name}>
       <div className="field-label">
         <label>
           {label}
@@ -41,14 +51,14 @@ function FormField({
           )}
         </label>
 
-        <FieldStatus status={status} />
+        <FieldStatus status={status} confidence={confidence} />
       </div>
 
       {isSelect ? (
-        <select value={inputValue} onChange={handleChange}>
+        <select value={inputValue} onChange={handleChange} data-field-name={name}>
           <option value="">{placeholder}</option>
 
-          {options.map((option) => (
+          {selectOptions.map((option) => (
             <option key={option} value={option}>
               {option}
             </option>
@@ -60,6 +70,7 @@ function FormField({
           value={inputValue}
           placeholder={placeholder}
           onChange={handleChange}
+          data-field-name={name}
         />
       )}
     </div>

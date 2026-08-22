@@ -2,6 +2,8 @@ import { useState, useEffect } from "react";
 import Header from "../components/layout/Header";
 import ChatPanel from "../components/chat/ChatPanel";
 import FormRenderer from "../components/form/FormRenderer";
+import Modal from "../components/common/Modal";
+import ReviewPanel from "../components/review/ReviewPanel";
 import { getForms, getFormSchema } from "../services/formSchema";
 import {
   confirmSubmission,
@@ -14,12 +16,20 @@ function AutoFiller({ user, onLogout, onBack }) {
   const [schema, setSchema] = useState([]);
   const [formData, setFormData] = useState({});
   const [fieldSources, setFieldSources] = useState({});
+  const [fieldConfidence, setFieldConfidence] = useState({});
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [submissionId, setSubmissionId] = useState(null);
   const [formInfo, setFormInfo] = useState(null);
   const [error, setError] = useState("");
+  const [reviewOpen, setReviewOpen] = useState(false);
+  const [draftReady, setDraftReady] = useState(false);
+  const draftOwner = user?.id || user?.email || "user";
+
+  const draftKey = formInfo
+    ? `enterpriseai:draft:${draftOwner}:${formInfo.formId}`
+    : null;
 
   useEffect(() => {
     let cancelled = false;
@@ -43,7 +53,20 @@ function AutoFiller({ user, onLogout, onBack }) {
           return data;
         }, {});
 
-        setFormData(initial);
+        const savedDraft = localStorage.getItem(
+          `enterpriseai:draft:${draftOwner}:${schemaData.formId}`
+        );
+
+        if (savedDraft) {
+          const parsedDraft = JSON.parse(savedDraft);
+          setFormData({ ...initial, ...(parsedDraft.formData || {}) });
+          setFieldSources(parsedDraft.fieldSources || {});
+          setFieldConfidence(parsedDraft.fieldConfidence || {});
+        } else {
+          setFormData(initial);
+        }
+
+        setDraftReady(true);
       } catch (loadError) {
         if (!cancelled) setError(loadError.message);
       } finally {
@@ -56,9 +79,46 @@ function AutoFiller({ user, onLogout, onBack }) {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [draftOwner]);
 
-  const handleFormUpdate = (newData, source = "user") => {
+  useEffect(() => {
+    if (!draftKey || !draftReady) return;
+
+    localStorage.setItem(
+      draftKey,
+      JSON.stringify({
+        formData,
+        fieldSources,
+        fieldConfidence,
+        savedAt: new Date().toISOString(),
+      })
+    );
+  }, [draftKey, draftReady, formData, fieldSources, fieldConfidence]);
+
+  const addCustomSelectOptions = (newData) => {
+    setSchema((currentSchema) =>
+      currentSchema.map((field) => {
+        const value = newData[field.name];
+        if (field.type !== "select" || !value) return field;
+
+        const exists = (field.options || []).some(
+          (option) =>
+            String(option).toLowerCase() === String(value).trim().toLowerCase()
+        );
+
+        if (exists) return field;
+
+        return {
+          ...field,
+          options: [...(field.options || []), String(value).trim()],
+        };
+      })
+    );
+  };
+
+  const handleFormUpdate = (newData, source = "user", confidence = {}) => {
+    addCustomSelectOptions(newData);
+
     setFormData((currentData) => ({
       ...currentData,
       ...newData,
@@ -73,9 +133,36 @@ function AutoFiller({ user, onLogout, onBack }) {
 
       return updatedSources;
     });
+
+    setFieldConfidence((currentConfidence) => {
+      const updatedConfidence = { ...currentConfidence };
+
+      Object.keys(newData).forEach((field) => {
+        if (source === "ai" && typeof confidence[field] === "number") {
+          updatedConfidence[field] = confidence[field];
+        } else if (source === "user") {
+          delete updatedConfidence[field];
+        }
+      });
+
+      return updatedConfidence;
+    });
   };
 
-  const handleSubmit = async () => {
+  const getFilledFields = () =>
+    schema.filter(
+      (field) =>
+        formData[field.name] !== null &&
+        formData[field.name] !== undefined &&
+        String(formData[field.name]).trim() !== ""
+    );
+
+  const handleSubmit = () => {
+    if (getFilledFields().length === 0 || !submissionId || submitting) return;
+    setReviewOpen(true);
+  };
+
+  const handleConfirmSubmit = async () => {
     const filledFields = schema.filter(
       (field) => formData[field.name]
     );
@@ -103,13 +190,25 @@ function AutoFiller({ user, onLogout, onBack }) {
         id: confirmed.id,
         timestamp: confirmed.submittedAt,
         title: `${formInfo?.formName || "Form"} submitted`,
+        status: confirmed.status,
         fields: filledFields.map((f) => f.name),
         data: { ...formData },
+        meta: Object.fromEntries(
+          filledFields.map((field) => [
+            field.name,
+            {
+              source: fieldSources[field.name] || "user",
+              confidence: fieldConfidence[field.name],
+            },
+          ])
+        ),
       };
 
       setHistory((prev) => [entry, ...prev]);
       const nextSubmission = await createSubmission(formInfo.formId);
       setSubmissionId(nextSubmission.id);
+      if (draftKey) localStorage.removeItem(draftKey);
+      setReviewOpen(false);
       handleClear();
     } catch (submitError) {
       setError(submitError.message);
@@ -126,6 +225,7 @@ function AutoFiller({ user, onLogout, onBack }) {
 
     setFormData(initial);
     setFieldSources({});
+    setFieldConfidence({});
   };
 
   const restoreHistory = (entry) => {
@@ -161,15 +261,17 @@ function AutoFiller({ user, onLogout, onBack }) {
       <div className="demo-content">
         <ChatPanel
           schema={schema}
+          formData={formData}
           submissionId={submissionId}
-          onFormUpdate={(data) => {
-            handleFormUpdate(data, "ai");
+          onFormUpdate={(data, confidence) => {
+            handleFormUpdate(data, "ai", confidence);
           }}
         />
 
         <FormRenderer
           formData={formData}
           fieldSources={fieldSources}
+          fieldConfidence={fieldConfidence}
           history={history}
           schema={schema}
           onRestoreHistory={restoreHistory}
@@ -183,6 +285,23 @@ function AutoFiller({ user, onLogout, onBack }) {
           }}
         />
       </div>
+
+      {reviewOpen && (
+        <Modal
+          title="Review submission"
+          onClose={() => setReviewOpen(false)}
+        >
+          <ReviewPanel
+            schema={schema}
+            formData={formData}
+            fieldSources={fieldSources}
+            fieldConfidence={fieldConfidence}
+            onCancel={() => setReviewOpen(false)}
+            onConfirm={handleConfirmSubmit}
+            submitting={submitting}
+          />
+        </Modal>
+      )}
     </div>
   );
 }

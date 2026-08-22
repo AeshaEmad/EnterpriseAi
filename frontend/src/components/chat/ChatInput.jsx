@@ -22,8 +22,7 @@ function ChatInput({ onSend, disabled = false }) {
 
   return (
     <div className="chat-input">
-      <input
-        type="text"
+      <textarea
         placeholder={
           disabled
             ? "Waiting for response..."
@@ -33,6 +32,7 @@ function ChatInput({ onSend, disabled = false }) {
         onChange={(event) => setMessage(event.target.value)}
         onKeyDown={handleKeyDown}
         disabled={disabled}
+        rows={2}
       />
 
       <button

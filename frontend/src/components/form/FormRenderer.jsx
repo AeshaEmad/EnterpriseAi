@@ -4,9 +4,18 @@ import RequiredFields from "./RequiredFields";
 import History from "../history/History";
 import formSchema from "../../config/formSchema";
 
+const hasValidValue = (field, value) => {
+  if (value === null || value === undefined || String(value).trim() === "") {
+    return false;
+  }
+
+  return true;
+};
+
 function FormRenderer({
   formData = {},
   fieldSources = {},
+  fieldConfidence = {},
   onFormUpdate,
   onSubmit,
   onClear,
@@ -23,11 +32,11 @@ function FormRenderer({
     .map((field) => field.name);
 
   const filledFields = schema.filter(
-    (field) => formData[field.name]
+    (field) => hasValidValue(field, formData[field.name])
   );
   const completedRequired = schema.filter(
     (field) =>
-      field.required && formData[field.name]
+      field.required && hasValidValue(field, formData[field.name])
   );
 
   const handleFieldChange = (field, value) => {
@@ -105,13 +114,19 @@ function FormRenderer({
             {schema.map((field) => (
               <FormField
                 key={field.name}
+                name={field.name}
                 label={field.label}
                 type={field.type}
                 value={formData[field.name] || ""}
                 required={field.required}
                 placeholder={field.placeholder}
                 options={field.options}
-                status={fieldSources[field.name]}
+                status={
+                  hasValidValue(field, formData[field.name])
+                    ? fieldSources[field.name]
+                    : undefined
+                }
+                confidence={fieldConfidence[field.name]}
                 onChange={(value) =>
                   handleFieldChange(field.name, value)
                 }

@@ -180,7 +180,6 @@ namespace EnterpriseAI.Services.Implementations
             SubmissionStatus.EnsureTransitionAllowed(submission.Status, SubmissionStatus.AiFilled);
 
             var version = await _db.FormVersions
-                .AsNoTracking()
                 .Include(v => v.Fields.OrderBy(f => f.DisplayOrder))
                 .FirstOrDefaultAsync(v => v.Id == submission.FormVersionId, cancellationToken);
 
@@ -231,7 +230,10 @@ namespace EnterpriseAI.Services.Implementations
                 }
             };
 
-            var aiResponse = await _aiClient.ExtractAsync(aiRequest, cancellationToken);
+            var fields = version.Fields.OrderBy(field => field.DisplayOrder).ToList();
+            var aiResponse = TryCreateDirectFieldResponse(userInput, fields, out var directResponse)
+                ? directResponse
+                : await _aiClient.ExtractAsync(aiRequest, cancellationToken);
 
             _db.AIAnalyses.Add(new AIAnalysis
             {
@@ -245,35 +247,44 @@ namespace EnterpriseAI.Services.Implementations
                 CreatedAt = DateTime.UtcNow
             });
 
-            _db.ConversationMessages.Add(new ConversationMessage
-            {
-                Id = Guid.NewGuid().ToString(),
-                SubmissionId = id,
-                Role = "assistant",
-                MessageType = "ai_extraction",
-                Content = JsonSerializer.Serialize(aiResponse),
-                SequenceNumber = sequenceNumber + 1,
-                CreatedAt = DateTime.UtcNow
-            });
-
-            var fields = await _db.FormFields
-                .AsNoTracking()
-                .Where(f => f.FormVersionId == submission.FormVersionId)
-                .ToListAsync(cancellationToken);
-
-            var byName = fields.ToDictionary(f => f.FieldName, f => f);
+            var byName = fields.ToDictionary(f => f.FieldName, f => f, StringComparer.OrdinalIgnoreCase);
             var existingByName = submission.SubmissionFields
                 .Where(f => f.FormField != null)
-                .ToDictionary(f => f.FormField!.FieldName, f => f);
+                .ToDictionary(f => f.FormField!.FieldName, f => f, StringComparer.OrdinalIgnoreCase);
 
-            var filledFields = new List<SubmissionFieldDto>();
+            var acceptedValues = new Dictionary<string, AiValueDto>(StringComparer.OrdinalIgnoreCase);
 
-            foreach (var kvp in aiResponse.Values)
+            var allowsCustomSelectValues = string.Equals(
+                aiResponse.ModelName,
+                "schema-direct",
+                StringComparison.OrdinalIgnoreCase);
+
+            foreach (var (fieldName, extractedValue) in aiResponse.Values)
             {
-                if (!byName.TryGetValue(kvp.Key, out var formField))
+                if (!byName.TryGetValue(fieldName, out var formField) ||
+                    !TryNormalizeFieldValue(
+                        formField,
+                        extractedValue.Value,
+                        out var normalizedValue,
+                        allowsCustomSelectValues))
                 {
                     continue;
                 }
+
+                extractedValue.Value = normalizedValue;
+                if (allowsCustomSelectValues)
+                {
+                    AddCustomSelectOption(formField, normalizedValue);
+                }
+
+                acceptedValues[formField.FieldName] = extractedValue;
+            }
+
+            var filledFields = new List<SubmissionFieldDto>();
+
+            foreach (var kvp in acceptedValues)
+            {
+                var formField = byName[kvp.Key];
 
                 if (existingByName.TryGetValue(kvp.Key, out var existing))
                 {
@@ -307,6 +318,52 @@ namespace EnterpriseAI.Services.Implementations
                     kvp.Value.Value, "ai", kvp.Value.Confidence, false));
             }
 
+            var missingRequiredFields = fields
+                .Where(field => field.IsRequired &&
+                    (!existingByName.TryGetValue(field.FieldName, out var value) ||
+                     !IsValidFieldValue(field, value.Value)))
+                .OrderBy(field => field.DisplayOrder)
+                .ToList();
+
+            var missingFields = missingRequiredFields
+                .Select(field => field.FieldName)
+                .ToList();
+            var missingFieldNames = missingFields.ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var clarifications = aiResponse.Clarifications
+                .Where(item => missingFieldNames.Contains(item.Field))
+                .ToList();
+
+            foreach (var field in missingRequiredFields)
+            {
+                if (clarifications.Any(item =>
+                    string.Equals(item.Field, field.FieldName, StringComparison.OrdinalIgnoreCase)))
+                {
+                    continue;
+                }
+
+                var suggestions = GetAllowedOptions(field);
+                var question = suggestions.Count > 0
+                    ? $"Please provide {field.FieldLabel}. Choose one of: {string.Join(", ", suggestions)}."
+                    : $"Please provide {field.FieldLabel}.";
+
+                clarifications.Add(new AiClarificationDto(field.FieldName, question, suggestions));
+            }
+
+            aiResponse.Values = acceptedValues;
+            aiResponse.MissingFields = missingFields;
+            aiResponse.Clarifications = clarifications;
+
+            _db.ConversationMessages.Add(new ConversationMessage
+            {
+                Id = Guid.NewGuid().ToString(),
+                SubmissionId = id,
+                Role = "assistant",
+                MessageType = "ai_extraction",
+                Content = JsonSerializer.Serialize(aiResponse),
+                SequenceNumber = sequenceNumber + 1,
+                CreatedAt = DateTime.UtcNow
+            });
+
             submission.Status = SubmissionStatus.AiFilled;
             submission.UpdatedAt = DateTime.UtcNow;
             _db.FormSubmissions.Update(submission);
@@ -315,8 +372,8 @@ namespace EnterpriseAI.Services.Implementations
 
             return new ExtractResultDto(
                 filledFields,
-                aiResponse.MissingFields,
-                aiResponse.Clarifications.Select(c => new ClarificationDto(c.Field, c.Question, c.Suggestions)).ToList(),
+                missingFields,
+                clarifications.Select(c => new ClarificationDto(c.Field, c.Question, c.Suggestions)).ToList(),
                 aiResponse.ModelName,
                 id);
         }
@@ -402,16 +459,30 @@ namespace EnterpriseAI.Services.Implementations
         {
             var errors = new List<FieldErrorDto>();
 
-            foreach (var field in submission.SubmissionFields.Where(f => f.FormField is not null))
+            var formFields = submission.FormVersion?.Fields
+                .OrderBy(field => field.DisplayOrder)
+                .ToList() ?? new List<FormField>();
+            var valuesByFieldId = submission.SubmissionFields
+                .ToDictionary(field => field.FormFieldId, field => field);
+
+            foreach (var formField in formFields)
             {
-                var formField = field.FormField!;
-                var hasValue = field.Value is not null &&
-                               field.Value.GetValueKind() != JsonValueKind.Null &&
-                               field.Value.ToJsonString() != "\"\"";
+                valuesByFieldId.TryGetValue(formField.Id, out var field);
+                var hasValue = HasValue(field?.Value);
 
                 if (formField.IsRequired && !hasValue)
                 {
                     errors.Add(new FieldErrorDto(formField.FieldName, $"'{formField.FieldLabel}' is required."));
+                    continue;
+                }
+
+                if (hasValue && !IsValidFieldValue(formField, field!.Value))
+                {
+                    var options = GetAllowedOptions(formField);
+                    var message = options.Count > 0
+                        ? $"'{formField.FieldLabel}' must be one of: {string.Join(", ", options)}."
+                        : $"'{formField.FieldLabel}' has an invalid value.";
+                    errors.Add(new FieldErrorDto(formField.FieldName, message));
                     continue;
                 }
 
@@ -420,8 +491,9 @@ namespace EnterpriseAI.Services.Implementations
                     continue;
                 }
 
-                var text = field.Value!.ToJsonString();
-                var number = TryGetNumber(field.Value);
+                var fieldValue = field!.Value!;
+                var text = fieldValue.ToJsonString();
+                var number = TryGetNumber(fieldValue);
 
                 if (validation.TryGetPropertyValue("minLength", out var minLengthNode) &&
                     minLengthNode is JsonValue minLengthValue &&
@@ -480,9 +552,158 @@ namespace EnterpriseAI.Services.Implementations
         {
             return await _db.FormSubmissions
                 .Include(s => s.FormVersion)
+                    .ThenInclude(v => v!.Fields)
                 .Include(s => s.SubmissionFields)
                     .ThenInclude(f => f.FormField)
                 .FirstOrDefaultAsync(s => s.Id == id, cancellationToken);
+        }
+
+        private static bool IsValidFieldValue(FormField field, JsonNode? value)
+        {
+            return TryNormalizeFieldValue(field, value, out _, allowCustomSelectValue: true);
+        }
+
+        private static bool TryCreateDirectFieldResponse(
+            string userInput,
+            IReadOnlyList<FormField> fields,
+            out AiExtractResponse response)
+        {
+            response = new AiExtractResponse();
+
+            const string prefix = "Please set ";
+            if (!userInput.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+
+            var separatorIndex = userInput.IndexOf(" to:", prefix.Length, StringComparison.OrdinalIgnoreCase);
+            if (separatorIndex < 0)
+            {
+                return false;
+            }
+
+            var requestedField = userInput[prefix.Length..separatorIndex].Trim();
+            var requestedValue = userInput[(separatorIndex + 4)..].Trim();
+            var field = fields.FirstOrDefault(item =>
+                string.Equals(item.FieldName, requestedField, StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(item.FieldLabel, requestedField, StringComparison.OrdinalIgnoreCase));
+
+            if (field is null || string.IsNullOrWhiteSpace(requestedValue))
+            {
+                return false;
+            }
+
+            response = new AiExtractResponse
+            {
+                Values = new Dictionary<string, AiValueDto>(StringComparer.OrdinalIgnoreCase)
+                {
+                    [field.FieldName] = new AiValueDto
+                    {
+                        Value = JsonValue.Create(requestedValue),
+                        Confidence = 1
+                    }
+                },
+                ModelName = "schema-direct"
+            };
+
+            return true;
+        }
+
+        private static bool TryNormalizeFieldValue(
+            FormField field,
+            JsonNode? value,
+            out JsonNode? normalizedValue,
+            bool allowCustomSelectValue = false)
+        {
+            normalizedValue = value;
+            if (!HasValue(value))
+            {
+                return false;
+            }
+
+            var options = GetAllowedOptions(field);
+            if (!string.Equals(field.FieldType, "select", StringComparison.OrdinalIgnoreCase) || options.Count == 0)
+            {
+                return true;
+            }
+
+            if (value is not JsonValue jsonValue || !jsonValue.TryGetValue<string>(out var text))
+            {
+                return false;
+            }
+
+            var canonicalOption = options.FirstOrDefault(option =>
+                string.Equals(option, text.Trim(), StringComparison.OrdinalIgnoreCase));
+            if (canonicalOption is null)
+            {
+                if (!allowCustomSelectValue)
+                {
+                    return false;
+                }
+
+                normalizedValue = JsonValue.Create(text.Trim());
+                return true;
+            }
+
+            normalizedValue = JsonValue.Create(canonicalOption);
+            return true;
+        }
+
+        private static bool HasValue(JsonNode? value)
+        {
+            if (value is null || value.GetValueKind() == JsonValueKind.Null)
+            {
+                return false;
+            }
+
+            return value is not JsonValue jsonValue ||
+                   !jsonValue.TryGetValue<string>(out var text) ||
+                   !string.IsNullOrWhiteSpace(text);
+        }
+
+        private static IReadOnlyList<string> GetAllowedOptions(FormField field)
+        {
+            if (field.Options is not JsonArray options)
+            {
+                return Array.Empty<string>();
+            }
+
+            return options
+                .OfType<JsonValue>()
+                .Select(value => value.TryGetValue<string>(out var option) ? option : null)
+                .Where(option => !string.IsNullOrWhiteSpace(option))
+                .Select(option => option!)
+                .ToList();
+        }
+
+        private static void AddCustomSelectOption(FormField field, JsonNode? value)
+        {
+            if (!string.Equals(field.FieldType, "select", StringComparison.OrdinalIgnoreCase) ||
+                value is not JsonValue jsonValue ||
+                !jsonValue.TryGetValue<string>(out var text) ||
+                string.IsNullOrWhiteSpace(text))
+            {
+                return;
+            }
+
+            var trimmed = text.Trim();
+            var currentOptions = GetAllowedOptions(field);
+            var exists = currentOptions.Any(option =>
+                string.Equals(option, trimmed, StringComparison.OrdinalIgnoreCase));
+
+            if (exists)
+            {
+                return;
+            }
+
+            var options = new JsonArray();
+            foreach (var option in currentOptions)
+            {
+                options.Add(option);
+            }
+
+            options.Add(trimmed);
+            field.Options = options;
         }
 
         private static decimal? TryGetNumber(JsonNode? node)
