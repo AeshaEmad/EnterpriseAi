@@ -48,9 +48,12 @@ namespace EnterpriseAI
                 await DbInitializer.SeedAdminAsync(app.Services);
             }
 
-            app.UseHttpsRedirection();
-
             app.UseCors(CorsPolicy);
+
+            if (!app.Environment.IsDevelopment())
+            {
+                app.UseHttpsRedirection();
+            }
 
             app.UseAuthentication();
 
