@@ -46,6 +46,7 @@ namespace EnterpriseAI
             if (app.Environment.IsDevelopment())
             {
                 await DbInitializer.SeedAdminAsync(app.Services);
+                await DbInitializer.SeedDemoFormAsync(app.Services);
             }
 
             app.UseCors(CorsPolicy);
