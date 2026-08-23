@@ -30,12 +30,9 @@ namespace EnterpriseAI
 
             var app = builder.Build();
 
-            if (string.Equals(
-                builder.Configuration["DatabaseProvider"],
-                "Sqlite",
-                StringComparison.OrdinalIgnoreCase))
+            // Ensure database tables and schema exist
+            using (var scope = app.Services.CreateScope())
             {
-                using var scope = app.Services.CreateScope();
                 var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
                 await db.Database.EnsureCreatedAsync();
             }
@@ -43,18 +40,11 @@ namespace EnterpriseAI
             // Configure the HTTP request pipeline.
             app.UseMiddleware<ExceptionHandlingMiddleware>();
 
-            if (app.Environment.IsDevelopment())
-            {
-                await DbInitializer.SeedAdminAsync(app.Services);
-                await DbInitializer.SeedDemoFormAsync(app.Services);
-            }
+            // Always seed Admin and demo form
+            await DbInitializer.SeedAdminAsync(app.Services);
+            await DbInitializer.SeedDemoFormAsync(app.Services);
 
             app.UseCors(CorsPolicy);
-
-            if (!app.Environment.IsDevelopment())
-            {
-                app.UseHttpsRedirection();
-            }
 
             app.UseAuthentication();
 
