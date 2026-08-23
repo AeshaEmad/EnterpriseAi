@@ -2,9 +2,11 @@ namespace EnterpriseAI.Settings
 {
     public class AiServiceSettings
     {
-        public string BaseUrl { get; set; } = "http://localhost:8000";
-        public string ExtractEndpoint { get; set; } = "/api/v1/extract";
+        public string BaseUrl { get; set; } = "https://api.groq.com/openai/v1";
+        public string ExtractEndpoint { get; set; } = "/chat/completions";
         public string? ApiKey { get; set; }
-        public int TimeoutSeconds { get; set; } = 120;
+        public string Model { get; set; } = "llama-3.3-70b-versatile";
+        public string Provider { get; set; } = "Groq";
+        public int TimeoutSeconds { get; set; } = 60;
     }
 }
