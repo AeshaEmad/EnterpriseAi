@@ -1,8 +1,10 @@
 import "./App.css";
+import "./admin-users.css";
 import { useState, useEffect } from "react";
 import AutoFiller from "./pages/AutoFiller";
 import Home from "./pages/Home";
 import Admin from "./pages/Admin";
+import AdminUsers from "./pages/AdminUsers";
 import Login from "./pages/Login";
 import { getSessionUser, logout } from "./services/auth";
 
@@ -29,6 +31,9 @@ function App() {
     setView("home");
   };
 
+  const openAdminUsers = () => setView("admin-users");
+  const openAdminForms = () => setView("admin-forms");
+
   if (!user) {
     return (
       <div className="auth-page">
@@ -37,22 +42,38 @@ function App() {
     );
   }
 
-  if (view === "admin" && user.role === "admin") {
+  const isAdmin = user.role === "admin";
+
+  if (view === "admin-users" && isAdmin) {
+    return (
+      <AdminUsers
+        user={user}
+        onLogout={handleLogout}
+        onBack={() => setView("home")}
+        onOpenUsers={openAdminUsers}
+        onOpenForms={openAdminForms}
+      />
+    );
+  }
+
+  if (view === "admin-forms" && isAdmin) {
     return (
       <Admin
         user={user}
         onLogout={handleLogout}
         onBack={() => setView("home")}
+        onOpenUsers={openAdminUsers}
+        onOpenForms={openAdminForms}
       />
     );
   }
 
-  if (view === "home") {
+  if (view === "home" || (view.startsWith("admin-") && !isAdmin)) {
     return (
       <Home
         user={user}
         onOpenDemo={() => setView("autofiller")}
-        onOpenAdmin={() => setView("admin")}
+        onOpenAdmin={openAdminUsers}
         onLogout={handleLogout}
       />
     );
