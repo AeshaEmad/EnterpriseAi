@@ -1,5 +1,13 @@
+<<<<<<< HEAD
+fastapi
+uvicorn[standard]
+requests
+pydantic
+python-dotenv
+=======
 fastapi>=0.115.0
 uvicorn>=0.30.0
 pydantic>=2.0.0
 requests>=2.31.0
 python-dotenv>=1.0.0
+>>>>>>> a3493a3235e8aef2e8aadc85b4e042a86ab5511a
