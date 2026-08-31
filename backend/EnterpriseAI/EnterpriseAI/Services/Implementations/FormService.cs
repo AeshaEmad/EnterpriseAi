@@ -13,25 +13,42 @@ namespace EnterpriseAI.Services.Implementations
         private readonly IRepository<Form> _forms;
         private readonly IRepository<FormVersion> _versions;
         private readonly IRepository<FormField> _fields;
+        private readonly IFormAccessService _formAccess;
 
         public FormService(
             IRepository<Form> forms,
             IRepository<FormVersion> versions,
-            IRepository<FormField> fields)
+            IRepository<FormField> fields,
+            IFormAccessService formAccess)
         {
             _forms = forms;
             _versions = versions;
             _fields = fields;
+            _formAccess = formAccess;
         }
 
-        public async Task<IEnumerable<FormDto>> GetAllAsync(CancellationToken cancellationToken = default)
+        public async Task<IEnumerable<FormDto>> GetAllAsync(string currentUserId, bool isAdmin, CancellationToken cancellationToken = default)
         {
             var forms = await _forms.GetAllAsync(cancellationToken);
-            return forms.Select(f => f.ToDto());
+
+            if (isAdmin)
+            {
+                return forms.Select(f => f.ToDto());
+            }
+
+            var accessible = await _formAccess.GetAccessForUserAsync(currentUserId, cancellationToken);
+            var allowedFormIds = accessible.Select(a => a.FormId).ToHashSet();
+
+            return forms.Where(f => allowedFormIds.Contains(f.Id)).Select(f => f.ToDto());
         }
 
-        public async Task<FormDetailDto?> GetByIdAsync(string id, CancellationToken cancellationToken = default)
+        public async Task<FormDetailDto?> GetByIdAsync(string id, string currentUserId, bool isAdmin, CancellationToken cancellationToken = default)
         {
+            if (!isAdmin && !await _formAccess.HasAccessAsync(currentUserId, id, cancellationToken))
+            {
+                throw new UnauthorizedAccessException("You do not have access to this form.");
+            }
+
             var form = await _forms.GetFirstAsync(
                 f => f.Id == id,
                 new Expression<Func<Form, object>>[] { f => f.Versions },
@@ -40,8 +57,13 @@ namespace EnterpriseAI.Services.Implementations
             return form?.ToDetailDto();
         }
 
-        public async Task<FormSchemaDto?> GetSchemaAsync(string id, CancellationToken cancellationToken = default)
+        public async Task<FormSchemaDto?> GetSchemaAsync(string id, string currentUserId, bool isAdmin, CancellationToken cancellationToken = default)
         {
+            if (!isAdmin && !await _formAccess.HasAccessAsync(currentUserId, id, cancellationToken))
+            {
+                throw new UnauthorizedAccessException("You do not have access to this form.");
+            }
+
             var form = await _forms.GetFirstAsync(
                 f => f.Id == id,
                 new Expression<Func<Form, object>>[] { f => f.Versions },

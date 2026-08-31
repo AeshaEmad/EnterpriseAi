@@ -15,21 +15,27 @@ namespace EnterpriseAI.Controllers
         [HttpGet]
         public async Task<ActionResult<IEnumerable<FormDto>>> GetAll(CancellationToken cancellationToken)
         {
-            var forms = await _formService.GetAllAsync(cancellationToken);
+            var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? string.Empty;
+            var isAdmin = User.IsInRole("Admin");
+            var forms = await _formService.GetAllAsync(currentUserId, isAdmin, cancellationToken);
             return Ok(forms);
         }
 
         [HttpGet("{id}")]
         public async Task<ActionResult<FormDetailDto>> GetById(string id, CancellationToken cancellationToken)
         {
-            var form = await _formService.GetByIdAsync(id, cancellationToken);
+            var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? string.Empty;
+            var isAdmin = User.IsInRole("Admin");
+            var form = await _formService.GetByIdAsync(id, currentUserId, isAdmin, cancellationToken);
             return form is null ? NotFound() : Ok(form);
         }
 
         [HttpGet("{id}/schema")]
         public async Task<ActionResult<FormSchemaDto>> GetSchema(string id, CancellationToken cancellationToken)
         {
-            var schema = await _formService.GetSchemaAsync(id, cancellationToken);
+            var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? string.Empty;
+            var isAdmin = User.IsInRole("Admin");
+            var schema = await _formService.GetSchemaAsync(id, currentUserId, isAdmin, cancellationToken);
             return schema is null ? NotFound() : Ok(schema);
         }
 
