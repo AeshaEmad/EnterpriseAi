@@ -1,0 +1,9 @@
+bin/
+obj/
+.vs/
+*.csproj.user
+*.user
+appsettings.*.local.json
+*.local.db
+*.local.db-shm
+*.local.db-wal

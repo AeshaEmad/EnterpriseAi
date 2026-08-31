@@ -126,9 +126,9 @@ unless FORM_SCHEMA explicitly defines the corresponding mapping.
 
 If the user does not provide a value for a field, do not create or invent a value for that field.
 
-Do not return missing fields inside `data` with null values.
+Do not return missing fields inside `values` with null or empty values.
 
-Only include fields in `data` for which a valid value has been extracted or deterministically normalized.
+Only include fields in `values` for which a valid value has been extracted or deterministically normalized.
 
 
 ### 4.6 Required Fields
@@ -248,9 +248,9 @@ Ambiguity may occur when:
 When ambiguity affects a field required for a reliable result:
 
 1. identify the ambiguous field
-2. explain the reason briefly
-3. set `needsClarification` to `true`
-4. provide a concise clarification question
+2. explain the reason briefly in the clarification question
+3. provide a concise clarification question
+4. provide suggestions if possible
 5. do not guess the value
 
 
@@ -267,14 +267,11 @@ Do not report optional fields as missing merely because they were not provided.
 
 ## 11. INVALID INPUT
 
-Use the `invalid` status when provided information cannot be represented according to FORM_SCHEMA.
+When provided information cannot be represented according to FORM_SCHEMA:
 
-Examples include:
-
-- a value incompatible with the schema-defined type
-- a value outside a schema-defined allowed-value set
-- a structurally invalid value that cannot be deterministically normalized
-- information that directly conflicts with the schema constraints
+- Do not include the invalid field in `values`
+- Add a clarification request to `clarifications` explaining the issue
+- Include any valid extracted fields in `values`
 
 Do not silently replace invalid values with alternatives.
 
@@ -284,120 +281,96 @@ Do not silently replace invalid values with alternatives.
 Return exactly one JSON object using the following structure:
 
 {
-  "status": "success | incomplete | clarification_required | invalid",
-  "data": {},
+  "values": {
+    "<field_name>": {
+      "value": <extracted_value>,
+      "confidence": <float_between_0_and_1>
+    }
+  },
   "missingFields": [],
-  "ambiguousFields": [],
-  "needsClarification": false,
-  "clarificationQuestion": null
+  "clarifications": [],
+  "modelName": "<model_name>"
 }
 
 
 ## 13. OUTPUT FIELD RULES
 
-### status
-
-Must contain exactly one of:
-
-- "success"
-- "incomplete"
-- "clarification_required"
-- "invalid"
-
-
-### data
+### values
 
 Contains only successfully extracted and validated fields.
 
-Every field in `data` must exist in FORM_SCHEMA.
-
-Do not include missing fields with null values.
+Every field key in `values` must exist in FORM_SCHEMA.
 
 Do not include fields that were not defined by FORM_SCHEMA.
+
+Each value object must contain:
+- `value`: the extracted value conforming to the field type
+- `confidence`: a float between 0.0 and 1.0 indicating extraction confidence
 
 
 ### missingFields
 
-Contains required schema fields for which no valid value was provided or resolved.
+Contains required schema field names for which no valid value was provided or resolved.
 
-Each item must identify the field and provide a concise reason.
+Example: ["managerEmail", "department"]
 
-Example structure:
 
+### clarifications
+
+Contains clarification requests for fields that cannot be mapped reliably.
+
+Each item must contain:
+- `field`: the ambiguous field name
+- `question`: a concise clarification question
+- `suggestions`: an array of possible values (empty array if none)
+
+Example:
 [
   {
-    "field": "<schema-defined-field-id>",
-    "reason": "Required field was not provided by the user."
+    "field": "employmentType",
+    "question": "Is this full-time or part-time?",
+    "suggestions": ["Full-time", "Part-time"]
   }
 ]
 
 
-### ambiguousFields
+### modelName
 
-Contains fields for which the user's information cannot be mapped reliably.
-
-Each item must identify the field and provide a concise reason.
-
-Example structure:
-
-[
-  {
-    "field": "<schema-defined-field-id>",
-    "reason": "The provided information has multiple possible interpretations."
-  }
-]
+Contains the model identifier string (e.g., "qwen3:4b").
 
 
-### needsClarification
+## 14. OUTPUT BEHAVIOR RULES
 
-Must be:
+### All required fields provided
 
-- `true` when clarification is required
-- `false` otherwise
-
-
-### clarificationQuestion
-
-Must contain a concise question when clarification is required.
-
-Otherwise it must be `null`.
+When the user has provided valid values for all required fields:
+- Include all extracted values in `values` with high confidence (0.9-1.0)
+- Leave `missingFields` empty
+- Leave `clarifications` empty
 
 
-## 14. STATUS RULES
+### Some required fields missing
 
-### success
-
-Use when:
-
-- all required fields have valid values
-- no relevant ambiguity remains
-- extracted data conforms to FORM_SCHEMA
+When the user has provided valid information but some required fields are missing:
+- Include extracted values in `values`
+- List missing required field names in `missingFields`
+- Leave `clarifications` empty
 
 
-### incomplete
+### Ambiguity detected
 
-Use when:
-
-- the user has provided valid information
-- one or more required fields are still missing
-- no ambiguity prevents processing the provided information
-
-
-### clarification_required
-
-Use when:
-
-- one or more fields cannot be mapped reliably
-- the ambiguity must be resolved before reliable completion
+When a field cannot be mapped reliably:
+- Do not include the ambiguous field in `values`
+- Add a clarification request to `clarifications` with field, question, and suggestions
+- Include any clearly extracted fields in `values`
 
 
-### invalid
+### Invalid input
 
-Use when:
-
-- provided information cannot be represented according to FORM_SCHEMA
-- schema constraints are violated
-- the provided value cannot be safely normalized into the required structure
+When provided information cannot be represented according to FORM_SCHEMA:
+- Do not include the invalid field in `values`
+- Add a clarification request explaining the issue
+- Include any valid extracted fields in `values`
 
 
 ## 15. STRICT OUTPUT REQUIREMENTS
@@ -443,7 +416,7 @@ All such information must come from FORM_SCHEMA, CONVERSATION_CONTEXT, or CURREN
 
 Before returning the response, verify internally that:
 
-1. Every field in `data` exists in FORM_SCHEMA.
+1. Every field key in `values` exists in FORM_SCHEMA.
 2. No field outside FORM_SCHEMA was introduced.
 3. No value was invented or assumed.
 4. Every extracted value is supported by the user message or relevant conversation context.
@@ -451,11 +424,12 @@ Before returning the response, verify internally that:
 6. Field types conform to FORM_SCHEMA.
 7. Restricted values conform to FORM_SCHEMA.
 8. Required fields are identified only according to FORM_SCHEMA.
-9. Missing fields are not included in `data`.
-10. Ambiguous mappings are not guessed.
-11. The output status accurately reflects the result.
-12. The response contains valid JSON only.
-13. No additional keys or explanatory text are returned.
+9. Missing fields are listed in `missingFields`, not in `values` with null.
+10. Ambiguous mappings are not guessed; they appear in `clarifications`.
+11. The response contains valid JSON only.
+12. No additional keys or explanatory text are returned.
+13. Each value has a confidence score between 0.0 and 1.0.
+14. `modelName` contains the model identifier string.
 
 
 ## 18. PRIORITY OF INFORMATION

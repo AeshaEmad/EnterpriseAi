@@ -1,67 +1,72 @@
-formSchema = [
-  {
-    name: "fullName",
-    label: "Full Name",
-    type: "text",
-    required: true,
-    placeholder: "Enter full name",
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "AutoFillOutputSchema",
+  "type": "object",
+  "required": [
+    "values",
+    "missingFields",
+    "clarifications",
+    "modelName"
+  ],
+  "properties": {
+    "values": {
+      "type": "object",
+      "description": "Object containing extracted field values keyed by field name.",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["value"],
+        "properties": {
+          "value": {
+            "type": ["string", "number", "boolean", "array", "null"],
+            "items": {
+              "type": "string"
+            }
+          },
+          "confidence": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          }
+        }
+      }
+    },
+    "missingFields": {
+      "type": "array",
+      "description": "List of required field names that have no value provided.",
+      "items": {
+        "type": "string"
+      }
+    },
+    "clarifications": {
+      "type": "array",
+      "description": "List of ambiguities detected during extraction.",
+      "items": {
+        "type": "object",
+        "required": [
+          "field",
+          "question",
+          "suggestions"
+        ],
+        "properties": {
+          "field": {
+            "type": "string"
+          },
+          "question": {
+            "type": "string"
+          },
+          "suggestions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "modelName": {
+      "type": "string",
+      "example": "qwen3:4b"
+    }
   },
-  {
-    name: "department",
-    label: "Department",
-    type: "select",
-    required: true,
-    placeholder: "Select department",
-    options: ["Sales", "Marketing", "Finance", "HR"],
-  },
-  {
-    name: "jobTitle",
-    label: "Job Title",
-    type: "text",
-    required: true,
-    placeholder: "Enter job title",
-  },
-  {
-    name: "employmentType",
-    label: "Employment Type",
-    type: "select",
-    required: true,
-    placeholder: "Select employment type",
-    options: ["Full-time", "Part-time", "Contract", "Intern"],
-  },
-  {
-    name: "startDate",
-    label: "Start Date",
-    type: "date",
-    required: true,
-  },
-  {
-    name: "dateOfBirth",
-    label: "Date of Birth",
-    type: "date",
-  },
-  {
-    name: "salary",
-    label: "Salary",
-    type: "number",
-    placeholder: "Enter salary",
-  },
-  {
-    name: "workEmail",
-    label: "Work Email",
-    type: "email",
-    placeholder: "name@company.com",
-  },
-  {
-    name: "phoneNumber",
-    label: "Phone Number",
-    type: "tel",
-    placeholder: "Enter phone number",
-  },
-  {
-    name: "city",
-    label: "City",
-    type: "text",
-    placeholder: "Enter city",
-  },
-];
+  "additionalProperties": false
+}

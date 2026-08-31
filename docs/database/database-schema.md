@@ -1,17 +1,6 @@
-DB Schema 
+					DB Schema
 
-
-1. Organizations
-
-	- Id : string PK
-	- Name : string
-	- Industry : string
-	- IsActive : boolean
-	- Description : string
-	- CreatedAt : timestamp
-	- UpdatedAt : timestamp
-
-2. users 
+1. Users
 
 	- Id : string PK
 	- FullName : string
@@ -21,32 +10,30 @@ DB Schema
 	- IsActive : boolean
 	- CreatedAt : timestamp
 	- UpdatedAt : timestamp
-	- OrganizationId : string FK
-	- UNIQUE(OrganizationId, Email)
+	- UNIQUE(Email)
 
-3. User_profile_attributes
+2. User_profile_attributes
 
 	- Id : string PK
 	- AttributeKey : string
 	- Value : json
 	- DataType : string
 	- Source : string
-	- UpdatedAt : timestamp
 	- CreatedAt : timestamp
+	- UpdatedAt : timestamp
 	- UserId : string FK
 	- UNIQUE(UserId, AttributeKey)
 
-4. forms 
+3. Forms
 
 	- Id : string PK
-	- OrganizationId : string FK
 	- Name : string
 	- Description : string
 	- IsActive : boolean
 	- CreatedAt : timestamp
 	- UpdatedAt : timestamp
 
-5. form_versions 
+4. Form_versions
 
 	- Id : string PK
 	- FormId : string FK
@@ -54,11 +41,11 @@ DB Schema
 	- Status : string
 	- IsActive : boolean
 	- CreatedAt : timestamp
-	- PublishedAt : timestamp
+	- PublishedAt : timestamp nullable
 	- UpdatedAt : timestamp
 	- UNIQUE(FormId, VersionNumber)
 
-6. form_fields 
+5. Form_fields
 
 	- Id : string PK
 	- FormVersionId : string FK
@@ -66,70 +53,63 @@ DB Schema
 	- FieldLabel : string
 	- FieldType : string
 	- IsRequired : boolean
-	- DefaultValue : string
-	- Options : json
-	- ValidationRules : json
+	- DefaultValue : string nullable
+	- Options : json nullable
+	- ValidationRules : json nullable
 	- DisplayOrder : int
 	- CreatedAt : timestamp
 	- UpdatedAt : timestamp
 	- UNIQUE(FormVersionId, FieldName)
 
-7. form_submissions 
+6. Form_submissions
 
 	- Id : string PK
 	- UserId : string FK
-	- OrganizationId : string
+	- FormVersionId : string FK
 	- Status : string
 	- CreatedAt : timestamp
 	- UpdatedAt : timestamp
-	- SubmittedAt : timestamp
-	- FormVersionId : string FK
+	- SubmittedAt : timestamp nullable
 
-8. submission_fields 
+7. Submission_fields
 
 	- Id : string PK
-	- ConfirmedByUserId : string FK nullable
-	- Value : json
-	- Source : string
-	- ConfidenceScore : float
-	- IsConfirmed : boolean
-	- CreatedAt : timestamp
-	- UpdatedAt : timestamp
-	- ConfirmedAt : timestamp nullable
 	- SubmissionId : string FK
 	- FormFieldId : string FK
+	- Value : json
+	- Source : string
+	- ConfidenceScore : float nullable
+	- IsConfirmed : boolean
+	- ConfirmedByUserId : string FK nullable
+	- ConfirmedAt : timestamp nullable
+	- CreatedAt : timestamp
+	- UpdatedAt : timestamp
 	- UNIQUE(SubmissionId, FormFieldId)
 
-9. ai_analyses 
+8. Submission_field_history
+
+	- Id : string PK
+	- SubmissionFieldId : string FK
+	- OldValue : json nullable
+	- NewValue : json
+	- Source : string
+	- ChangedByUserId : string FK nullable
+	- Reason : string nullable
+	- ChangedAt : timestamp
+
+9. Ai_analyses
 
 	- Id : string PK
 	- SubmissionId : string FK
 	- ModelName : string
 	- Status : string
 	- AnalysisResult : json
-	- MissingFields : json
-	- AmbiguousFields : json
-	- CreatedAt : timestamp
-	- ModelVersion : string
-	- PromptVersion : string
-	- InferenceTimeMs : int
+	- MissingFields : json nullable
+	- AmbiguousFields : json nullable
 	- ErrorMessage : string nullable
-
-10. clarifications 
-
-	- Id : string PK
-	- SubmissionId : string FK
-	- FormFieldId : string FK nullable
-	- Question : string
-	- Reason : string
-	- UserAnswer : string
-	- Status : string
 	- CreatedAt : timestamp
-	- AnsweredAt : timestamp
-	- QuestionMessageId : string FK
-	- AnswerMessageId : string FK nullable
 
-11. conversation_messages 
+10. Conversation_messages
 
 	- Id : string PK
 	- SubmissionId : string FK
@@ -141,11 +121,26 @@ DB Schema
 	- CreatedAt : timestamp
 	- UNIQUE(SubmissionId, SequenceNumber)
 
-12. business_rules 
+11. Clarifications
 
 	- Id : string PK
-	- OrganizationId : string FK
-	- FormId : string FK nullable
+	- SubmissionId : string FK
+	- FormFieldId : string FK nullable
+	- Question : string
+	- Reason : string
+	- UserAnswer : string nullable
+	- Status : string
+	- CreatedAt : timestamp
+	- AnsweredAt : timestamp nullable
+	- QuestionMessageId : string FK
+	- AnswerMessageId : string FK nullable
+
+12. Business_rules
+
+	- Id : string PK
+	- FormVersionId : string FK nullable
+	- Name : string
+	- Description : string
 	- RuleType : string
 	- Definition : json
 	- Priority : int
@@ -153,53 +148,57 @@ DB Schema
 	- CreatedAt : timestamp
 	- UpdatedAt : timestamp
 
-13. confirmations 
+13. Rule_execution_results
 
 	- Id : string PK
-	- ConfirmedAt : timestamp
-	- Status : string
-	- SnapshotVersion : int
-	- CreatedAt : timestamp
-	- ConfirmedByUserId : string FK
 	- SubmissionId : string FK
+	- BusinessRuleId : string FK
+	- Status : string
+	- Result : json
+	- Details : string nullable
+	- ExecutedAt : timestamp
+
+14. Confirmations
+
+	- Id : string PK
+	- SubmissionId : string FK
+	- ConfirmedByUserId : string FK
+	- Status : string
+	- ConfirmedAt : timestamp
+	- CreatedAt : timestamp
 
 
-Relations 
+			Relations 
 
-organizations
- ├── users
- ├── forms
- ├── form_submissions
- └── business_rules
+user_profile_attributes.UserId > users.Id
 
-users
- ├── user_profile_attributes
- └── form_submissions
+form_versions.FormId > forms.Id
+form_fields.FormVersionId > form_versions .Id
 
-forms
- ├── form_versions
- └── business_rules
+form_submissions.UserId > users .Id
+form_submissions.FormVersionId > form_versions.Id
+submission_fields.SubmissionId > form_submissions.Id
+submission_fields.FormFieldId > form_fields.Id
 
-form_versions
- ├── form_fields
- └── form_submissions
+submission_fields.ConfirmedByUserId > users.Id
 
-form_submissions
- ├── submission_fields
- ├── ai_analyses
- ├── clarifications
- ├── conversation_messages
- └── confirmations
+submission_field_history.SubmissionFieldId > submission_fields.Id
+submission_field_history.ChangedByUserId > users.Id
 
-form_fields
- ├── submission_fields
- └── clarifications
+ai_analyses.SubmissionId > form_submissions.Id
 
-conversation_messages
- └── clarifications
+conversation_messages.SubmissionId > form_submissions.Id
 
+clarifications.SubmissionId > form_submissions.Id
+clarifications.FormFieldId > form_fields.Id
+clarifications.QuestionMessageId > conversation_messages.Id
+clarifications.AnswerMessageId >conversation_messages.Id
 
+business_rules.FormVersionId > form_versions.Id
+rule_execution_results.SubmissionId > form_submissions.Id
+rule_execution_results.BusinessRuleId > business_rules.Id
 
-
+confirmations.SubmissionId - form_submissions.Id
+confirmations.ConfirmedByUserId > users.Id
 
 

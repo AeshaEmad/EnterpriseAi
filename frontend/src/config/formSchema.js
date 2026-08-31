@@ -1,0 +1,69 @@
+export const formSchema = [
+  {
+    name: "fullName",
+    label: "Full Name",
+    type: "text",
+    required: true,
+    placeholder: "Enter full name",
+  },
+  {
+    name: "department",
+    label: "Department",
+    type: "select",
+    required: true,
+    placeholder: "Select department",
+    options: ["Sales", "Marketing", "Finance", "HR"],
+  },
+  {
+    name: "jobTitle",
+    label: "Job Title",
+    type: "text",
+    required: true,
+    placeholder: "Enter job title",
+  },
+  {
+    name: "employmentType",
+    label: "Employment Type",
+    type: "select",
+    required: true,
+    placeholder: "Select employment type",
+    options: ["Full-time", "Part-time", "Contract", "Intern"],
+  },
+  {
+    name: "startDate",
+    label: "Start Date",
+    type: "date",
+    required: true,
+  },
+  {
+    name: "dateOfBirth",
+    label: "Date of Birth",
+    type: "date",
+  },
+  {
+    name: "salary",
+    label: "Salary",
+    type: "number",
+    placeholder: "Enter salary",
+  },
+  {
+    name: "workEmail",
+    label: "Work Email",
+    type: "email",
+    placeholder: "name@company.com",
+  },
+  {
+    name: "phoneNumber",
+    label: "Phone Number",
+    type: "tel",
+    placeholder: "Enter phone number",
+  },
+  {
+    name: "city",
+    label: "City",
+    type: "text",
+    placeholder: "Enter city",
+  },
+];
+
+export default formSchema;
