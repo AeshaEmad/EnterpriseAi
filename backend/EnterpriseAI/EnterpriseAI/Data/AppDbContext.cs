@@ -21,6 +21,7 @@ namespace EnterpriseAI.Data
         public DbSet<BusinessRule> BusinessRules => Set<BusinessRule>();
         public DbSet<RuleExecutionResult> RuleExecutionResults => Set<RuleExecutionResult>();
         public DbSet<Confirmation> Confirmations => Set<Confirmation>();
+        public DbSet<UserFormAccess> UserFormAccesses => Set<UserFormAccess>();
 
         protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
         {
@@ -206,6 +207,30 @@ namespace EnterpriseAI.Data
                 .WithMany(u => u.Confirmations)
                 .HasForeignKey(c => c.ConfirmedByUserId)
                 .OnDelete(DeleteBehavior.Restrict);
+
+            // user_form_accesses
+            modelBuilder.Entity<UserFormAccess>()
+                .HasOne(a => a.User)
+                .WithMany(u => u.FormAccesses)
+                .HasForeignKey(a => a.UserId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<UserFormAccess>()
+                .HasOne(a => a.Form)
+                .WithMany(f => f.UserAccesses)
+                .HasForeignKey(a => a.FormId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<UserFormAccess>()
+                .HasOne(a => a.GrantedByUser)
+                .WithMany()
+                .HasForeignKey(a => a.GrantedByUserId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<UserFormAccess>()
+                .HasIndex(a => new { a.UserId, a.FormId })
+                .IsUnique();
+        
         }
 
         private sealed class JsonNodeValueConverter : ValueConverter<JsonNode?, string>
