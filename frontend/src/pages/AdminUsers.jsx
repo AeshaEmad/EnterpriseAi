@@ -4,6 +4,12 @@ import Button from "../components/common/Button";
 import Modal from "../components/common/Modal";
 import AdminNav from "../components/admin/AdminNav";
 import { createUser, getUsers } from "../services/users";
+import { getForms } from "../services/formSchema";
+import {
+  getUserFormAccess,
+  grantFormAccess,
+  revokeFormAccess,
+} from "../services/formAccess";
 
 const ROLE_OPTIONS = ["User", "Manager", "Admin"];
 
@@ -76,6 +82,13 @@ function AdminUsers({
   const [creating, setCreating] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
+  const [accessTarget, setAccessTarget] = useState(null);
+  const [accessForms, setAccessForms] = useState([]);
+  const [accessGranted, setAccessGranted] = useState(new Set());
+  const [accessLoading, setAccessLoading] = useState(false);
+  const [accessSaving, setAccessSaving] = useState(null);
+  const [accessError, setAccessError] = useState("");
+  const [accessDone, setAccessDone] = useState("");
 
   const loadUsers = useCallback(async () => {
     setLoading(true);
@@ -92,8 +105,76 @@ function AdminUsers({
   }, []);
 
   useEffect(() => {
-    loadUsers();
+    const timer = setTimeout(() => loadUsers(), 0);
+    return () => clearTimeout(timer);
   }, [loadUsers]);
+
+  const openAccess = async (target) => {
+    setAccessTarget(target);
+    setAccessLoading(true);
+    setAccessError("");
+    setAccessDone("");
+
+    try {
+      const [forms, granted] = await Promise.all([
+        getForms(),
+        getUserFormAccess(target.id),
+      ]);
+
+      const grantedIds = new Set(
+        (Array.isArray(granted) ? granted : []).map((item) => item.formId)
+      );
+
+      setAccessForms(Array.isArray(forms) ? forms : []);
+      setAccessGranted(grantedIds);
+    } catch (error) {
+      setAccessError(error.message);
+    } finally {
+      setAccessLoading(false);
+    }
+  };
+
+  const closeAccess = () => {
+    setAccessTarget(null);
+    setAccessForms([]);
+    setAccessGranted(new Set());
+    setAccessError("");
+    setAccessDone("");
+    setAccessSaving(null);
+  };
+
+  const toggleAccess = async (formId) => {
+    if (!accessTarget || accessSaving !== null) return;
+
+    const hasAccess = accessGranted.has(formId);
+    setAccessSaving(formId);
+    setAccessError("");
+    setAccessDone("");
+
+    try {
+      if (hasAccess) {
+        await revokeFormAccess(accessTarget.id, formId);
+      } else {
+        await grantFormAccess(accessTarget.id, formId);
+      }
+
+      setAccessGranted((current) => {
+        const next = new Set(current);
+        if (hasAccess) {
+          next.delete(formId);
+        } else {
+          next.add(formId);
+        }
+        return next;
+      });
+
+      setAccessDone(hasAccess ? "Access removed." : "Form shared with this user.");
+    } catch (error) {
+      setAccessError(error.message);
+    } finally {
+      setAccessSaving(null);
+    }
+  };
 
   const filteredUsers = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -354,6 +435,7 @@ function AdminUsers({
                     <th>Role</th>
                     <th>Status</th>
                     <th>Created</th>
+                    <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -382,6 +464,15 @@ function AdminUsers({
                         </span>
                       </td>
                       <td className="users-date">{formatDate(item.createdAt)}</td>
+                      <td className="users-actions">
+                        <button
+                          type="button"
+                          className="directory-action"
+                          onClick={() => openAccess(item)}
+                        >
+                          Form Access
+                        </button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -521,6 +612,72 @@ function AdminUsers({
               </Button>
             </div>
           </form>
+        </Modal>
+      )}
+
+      {accessTarget && (
+        <Modal
+          title={`Share forms with ${accessTarget.fullName || accessTarget.email}`}
+          onClose={closeAccess}
+        >
+          <div className="form-access-modal">
+            <p className="approval-desc">
+              The user can only see and fill the forms you share with them.
+              Toggle a form to share or hide it.
+            </p>
+
+            {accessError && (
+              <div className="form-error" role="alert">{accessError}</div>
+            )}
+
+            {!accessError && accessDone && (
+              <div className="admin-message success">{accessDone}</div>
+            )}
+
+            {accessLoading ? (
+              <div className="loading-state">Loading forms...</div>
+            ) : accessForms.length === 0 ? (
+              <div className="admin-empty">
+                No forms available to share yet.
+              </div>
+            ) : (
+              <div className="form-access-list">
+                {accessForms.map((form) => {
+                  const granted = accessGranted.has(form.id);
+                  return (
+                    <label
+                      key={form.id}
+                      className={`form-access-row ${granted ? "granted" : ""}`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={granted}
+                        disabled={accessSaving !== null}
+                        onChange={() => toggleAccess(form.id)}
+                      />
+                      <span className="form-access-meta">
+                        <strong>{form.name}</strong>
+                        <small>{form.description || "No description"}</small>
+                      </span>
+                      <span className="form-access-state">
+                        {accessSaving === form.id
+                          ? "Saving..."
+                          : granted
+                            ? "Shared"
+                            : "Hidden"}
+                      </span>
+                    </label>
+                  );
+                })}
+              </div>
+            )}
+
+            <div className="reject-actions">
+              <Button variant="secondary" onClick={closeAccess}>
+                Close
+              </Button>
+            </div>
+          </div>
         </Modal>
       )}
     </div>

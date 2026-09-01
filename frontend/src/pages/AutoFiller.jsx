@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import Header from "../components/layout/Header";
 import ChatPanel from "../components/chat/ChatPanel";
 import FormRenderer from "../components/form/FormRenderer";
+import FormPicker from "../components/form/FormPicker";
 import Modal from "../components/common/Modal";
 import ReviewPanel from "../components/review/ReviewPanel";
 import { getForms, getFormSchema } from "../services/formSchema";
@@ -13,6 +14,8 @@ import {
 } from "../services/submissions";
 
 function AutoFiller({ user, onLogout, onBack }) {
+  const [stage, setStage] = useState("pick");
+  const [forms, setForms] = useState([]);
   const [schema, setSchema] = useState([]);
   const [formData, setFormData] = useState({});
   const [fieldSources, setFieldSources] = useState({});
@@ -34,52 +37,21 @@ function AutoFiller({ user, onLogout, onBack }) {
   useEffect(() => {
     let cancelled = false;
 
-    async function load() {
-      try {
-        const forms = await getForms();
-        const selectedForm = forms.find((form) => form.isActive) || forms[0];
-        if (!selectedForm) throw new Error("No forms are available yet.");
-
-        const schemaData = await getFormSchema(selectedForm.id);
-        const submission = await createSubmission(selectedForm.id);
-
-        if (cancelled) return;
-        setFormInfo(schemaData);
-        setSchema(schemaData.fields);
-        setSubmissionId(submission.id);
-
-        const initial = schemaData.fields.reduce((data, field) => {
-          data[field.name] = "";
-          return data;
-        }, {});
-
-        const savedDraft = localStorage.getItem(
-          `enterpriseai:draft:${draftOwner}:${schemaData.formId}`
-        );
-
-        if (savedDraft) {
-          const parsedDraft = JSON.parse(savedDraft);
-          setFormData({ ...initial, ...(parsedDraft.formData || {}) });
-          setFieldSources(parsedDraft.fieldSources || {});
-          setFieldConfidence(parsedDraft.fieldConfidence || {});
-        } else {
-          setFormData(initial);
-        }
-
-        setDraftReady(true);
-      } catch (loadError) {
+    getForms()
+      .then((list) => {
+        if (!cancelled) setForms(list);
+      })
+      .catch((loadError) => {
         if (!cancelled) setError(loadError.message);
-      } finally {
+      })
+      .finally(() => {
         if (!cancelled) setLoading(false);
-      }
-    }
-
-    load();
+      });
 
     return () => {
       cancelled = true;
     };
-  }, [draftOwner]);
+  }, []);
 
   useEffect(() => {
     if (!draftKey || !draftReady) return;
@@ -94,6 +66,61 @@ function AutoFiller({ user, onLogout, onBack }) {
       })
     );
   }, [draftKey, draftReady, formData, fieldSources, fieldConfidence]);
+
+  const startForm = async (formId) => {
+    setLoading(true);
+    setError("");
+
+    try {
+      const schemaData = await getFormSchema(formId);
+      const submission = await createSubmission(formId);
+
+      const initial = schemaData.fields.reduce((data, field) => {
+        data[field.name] = "";
+        return data;
+      }, {});
+
+      const savedDraft = localStorage.getItem(
+        `enterpriseai:draft:${draftOwner}:${schemaData.formId}`
+      );
+
+      setFormInfo(schemaData);
+      setSchema(schemaData.fields);
+      setSubmissionId(submission.id);
+      setHistory([]);
+      setDraftReady(false);
+
+      if (savedDraft) {
+        const parsedDraft = JSON.parse(savedDraft);
+        setFormData({ ...initial, ...(parsedDraft.formData || {}) });
+        setFieldSources(parsedDraft.fieldSources || {});
+        setFieldConfidence(parsedDraft.fieldConfidence || {});
+      } else {
+        setFormData(initial);
+      }
+
+      setStage("fill");
+      setDraftReady(true);
+    } catch (loadError) {
+      setError(loadError.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const goBackToPicker = () => {
+    if (draftKey) localStorage.removeItem(draftKey);
+    setFormData({});
+    setFieldSources({});
+    setFieldConfidence({});
+    setFormInfo(null);
+    setSchema([]);
+    setSubmissionId(null);
+    setHistory([]);
+    setDraftReady(false);
+    setError("");
+    setStage("pick");
+  };
 
   const addCustomSelectOptions = (newData) => {
     setSchema((currentSchema) =>
@@ -237,7 +264,22 @@ function AutoFiller({ user, onLogout, onBack }) {
       <div className="autofiller-page">
         <Header user={user} onLogout={onLogout} onBack={onBack} />
         <div className="demo-content">
-          <div className="loading-state">Loading form...</div>
+          <div className="loading-state">Loading...</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (stage === "pick") {
+    return (
+      <div className="autofiller-page">
+        <Header user={user} onLogout={onLogout} onBack={onBack} />
+        <div className="demo-content">
+          <FormPicker
+            forms={forms}
+            error={error}
+            onSelect={(form) => startForm(form.id)}
+          />
         </div>
       </div>
     );
@@ -285,6 +327,14 @@ function AutoFiller({ user, onLogout, onBack }) {
           }}
         />
       </div>
+
+      <button
+        className="switch-form-button"
+        type="button"
+        onClick={goBackToPicker}
+      >
+        &#8592; Switch form
+      </button>
 
       {reviewOpen && (
         <Modal

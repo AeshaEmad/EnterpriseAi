@@ -99,7 +99,7 @@ const features = [
   },
 ];
 
-function Home({ user, onOpenDemo, onOpenAdmin, onLogout }) {
+function Home({ user, onOpenDemo, onOpenAdmin, onOpenManager, onLogout }) {
   return (
     <div className="home-page">
       <header className="home-header">
@@ -119,6 +119,16 @@ function Home({ user, onOpenDemo, onOpenAdmin, onLogout }) {
                 onClick={onOpenAdmin}
               >
                 Admin Console
+              </button>
+            )}
+
+            {user.role === "manager" && (
+              <button
+                type="button"
+                className="admin-nav-link"
+                onClick={onOpenManager}
+              >
+                Manager Console
               </button>
             )}
           </nav>

@@ -1,5 +1,12 @@
 import { get, post } from "./api";
 
+export const formVersionStatus = {
+  Draft: "Draft",
+  PendingApproval: "PendingApproval",
+  Published: "Published",
+  Rejected: "Rejected",
+};
+
 const normalizeField = (field) => ({
   name: field.name,
   label: field.label,
@@ -20,6 +27,19 @@ export function createForm(name, description) {
 
 export function getForm(formId) {
   return get(`/forms/${encodeURIComponent(formId)}`);
+}
+
+export function approveFormVersion(formId, versionId) {
+  return post(
+    `/forms/${encodeURIComponent(formId)}/versions/${encodeURIComponent(versionId)}/approve`
+  );
+}
+
+export function rejectFormVersion(formId, versionId, comment) {
+  return post(
+    `/forms/${encodeURIComponent(formId)}/versions/${encodeURIComponent(versionId)}/reject`,
+    { comment }
+  );
 }
 
 export async function getFormSchema(formId) {

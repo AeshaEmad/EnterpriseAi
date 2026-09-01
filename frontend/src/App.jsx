@@ -5,6 +5,7 @@ import AutoFiller from "./pages/AutoFiller";
 import Home from "./pages/Home";
 import Admin from "./pages/Admin";
 import AdminUsers from "./pages/AdminUsers";
+import Manager from "./pages/Manager";
 import Login from "./pages/Login";
 import { getSessionUser, logout } from "./services/auth";
 
@@ -33,6 +34,7 @@ function App() {
 
   const openAdminUsers = () => setView("admin-users");
   const openAdminForms = () => setView("admin-forms");
+  const openManager = () => setView("manager");
 
   if (!user) {
     return (
@@ -43,6 +45,17 @@ function App() {
   }
 
   const isAdmin = user.role === "admin";
+  const isManager = user.role === "manager";
+
+  if (view === "manager" && isManager) {
+    return (
+      <Manager
+        user={user}
+        onLogout={handleLogout}
+        onBack={() => setView("home")}
+      />
+    );
+  }
 
   if (view === "admin-users" && isAdmin) {
     return (
@@ -68,12 +81,13 @@ function App() {
     );
   }
 
-  if (view === "home" || (view.startsWith("admin-") && !isAdmin)) {
+  if (view === "home" || (view.startsWith("admin-") && !isAdmin) || (view === "manager" && !isManager)) {
     return (
       <Home
         user={user}
         onOpenDemo={() => setView("autofiller")}
         onOpenAdmin={openAdminUsers}
+        onOpenManager={openManager}
         onLogout={handleLogout}
       />
     );

@@ -27,6 +27,7 @@ function FormRenderer({
   title = "Employee Form",
 }) {
   const [activeTab, setActiveTab] = useState("form");
+  const [missingFields, setMissingFields] = useState(() => new Set());
   const requiredFields = schema
     .filter((field) => field.required)
     .map((field) => field.name);
@@ -45,6 +46,31 @@ function FormRenderer({
         [field]: value,
       });
     }
+
+    setMissingFields((current) => {
+      if (!current.has(field)) return current;
+      const next = new Set(current);
+      next.delete(field);
+      return next;
+    });
+  };
+
+  const handleSubmit = () => {
+    const missingRequired = schema
+      .filter(
+        (field) =>
+          field.required && !hasValidValue(field, formData[field.name])
+      )
+      .map((field) => field.name);
+
+    if (missingRequired.length > 0) {
+      setMissingFields(new Set(missingRequired));
+      return;
+    }
+
+    setMissingFields(new Set());
+
+    if (onSubmit) onSubmit();
   };
 
   return (
@@ -126,6 +152,7 @@ function FormRenderer({
                     ? fieldSources[field.name]
                     : undefined
                 }
+                missing={missingFields.has(field.name)}
                 confidence={fieldConfidence[field.name]}
                 onChange={(value) =>
                   handleFieldChange(field.name, value)
@@ -135,11 +162,18 @@ function FormRenderer({
           </div>
 
           <div className="form-actions">
+            {missingFields.size > 0 && (
+              <div className="missing-summary">
+                {missingFields.size} required field
+                {missingFields.size > 1 ? "s" : ""} need to be filled
+                before submitting.
+              </div>
+            )}
             {error && <div className="form-error">{error}</div>}
             <button
               className="btn primary"
               type="button"
-              onClick={onSubmit}
+              onClick={handleSubmit}
               disabled={submitting}
             >
               {submitting ? "Submitting..." : "Submit"}
@@ -147,7 +181,10 @@ function FormRenderer({
             <button
               className="btn secondary"
               type="button"
-              onClick={onClear}
+              onClick={() => {
+                setMissingFields(new Set());
+                onClear();
+              }}
             >
               Clear
             </button>

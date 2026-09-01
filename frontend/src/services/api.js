@@ -87,6 +87,9 @@ export function put(endpoint, body) {
   });
 }
 
-export function del(endpoint) {
-  return request(endpoint, { method: "DELETE" });
+export function del(endpoint, body) {
+  return request(endpoint, {
+    method: "DELETE",
+    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+  });
 }

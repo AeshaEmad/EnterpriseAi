@@ -138,6 +138,17 @@ function Admin({ user, onLogout, onBack, onOpenUsers, onOpenForms }) {
     });
   };
 
+  const handleNewForm = () => {
+    setFormInfo(null);
+    setFields([]);
+    setFormName("");
+    setFormDescription("");
+    setMessage("");
+    setEditingOptions(null);
+    setOptionInput("");
+    setPreviewOpen(false);
+  };
+
   const handleSave = async () => {
     setSaving(true);
     setMessage("");
@@ -229,6 +240,12 @@ function Admin({ user, onLogout, onBack, onOpenUsers, onOpenForms }) {
               >
                 {message}
               </span>
+            )}
+
+            {formInfo && (
+              <Button variant="secondary" onClick={handleNewForm}>
+                + New Form
+              </Button>
             )}
 
             <Button onClick={addField}>+ Add Field</Button>
