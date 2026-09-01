@@ -118,7 +118,7 @@ function Home({ user, onOpenDemo, onOpenAdmin, onLogout }) {
                 className="admin-nav-link"
                 onClick={onOpenAdmin}
               >
-                Admin
+                Admin Console
               </button>
             )}
           </nav>

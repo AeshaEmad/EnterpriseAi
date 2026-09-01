@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import Header from "../components/layout/Header";
 import Button from "../components/common/Button";
 import Modal from "../components/common/Modal";
+import AdminNav from "../components/admin/AdminNav";
 import {
   createForm,
   createFormVersion,
@@ -28,7 +29,7 @@ const emptyField = () => ({
   options: [],
 });
 
-function Admin({ user, onLogout, onBack }) {
+function Admin({ user, onLogout, onBack, onOpenUsers, onOpenForms }) {
   const [fields, setFields] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -178,7 +179,13 @@ function Admin({ user, onLogout, onBack }) {
   if (loading) {
     return (
       <div className="autofiller-page">
-        <Header user={user} onLogout={onLogout} onBack={onBack} />
+        <Header
+          user={user}
+          onLogout={onLogout}
+          onBack={onBack}
+          eyebrow="ADMIN CONSOLE"
+          title="Form Builder"
+        />
         <div className="admin-page">
           <div className="loading-state">Loading schema...</div>
         </div>
@@ -188,9 +195,20 @@ function Admin({ user, onLogout, onBack }) {
 
   return (
     <div className="autofiller-page">
-      <Header user={user} onLogout={onLogout} onBack={onBack} />
+      <Header
+        user={user}
+        onLogout={onLogout}
+        onBack={onBack}
+        eyebrow="ADMIN CONSOLE"
+        title="Form Builder"
+      />
 
       <div className="admin-page">
+        <AdminNav
+          active="forms"
+          onOpenUsers={onOpenUsers}
+          onOpenForms={onOpenForms}
+        />
         <div className="admin-top">
           <div>
             <span className="eyebrow">ADMIN</span>

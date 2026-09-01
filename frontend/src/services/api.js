@@ -49,8 +49,19 @@ export async function request(endpoint, options = {}) {
     : null;
 
   if (!response.ok) {
+    const validationMessage = data?.errors
+      ? Object.values(data.errors).flat().find(Boolean)
+      : null;
+
+    if (response.status === 403) {
+      throw new Error("You do not have permission to perform this action.");
+    }
+
     throw new Error(
-      data?.error?.message || data?.message || data?.error ||
+      data?.error?.message ||
+        data?.message ||
+        validationMessage ||
+        (typeof data?.error === "string" ? data.error : null) ||
         `Request failed (${response.status})`
     );
   }

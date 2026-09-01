@@ -22,6 +22,8 @@ namespace EnterpriseAI.DTOs.Users
         [MinLength(6, ErrorMessage = "Password must be at least 6 characters.")]
         public string Password { get; set; } = string.Empty;
 
+        [Required(ErrorMessage = "Role is required.")]
+        [RegularExpression("(?i)^(User|Manager|Admin)$", ErrorMessage = "Role must be User, Manager, or Admin.")]
         public string Role { get; set; } = "User";
     }
 
