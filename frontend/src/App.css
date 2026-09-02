@@ -1372,7 +1372,8 @@ body {
 }
 
 .admin-field-group input,
-.admin-field-group select {
+.admin-field-group select,
+.admin-field-group textarea {
   padding: 8px 10px;
   border: 1px solid #dedfd7;
   border-radius: 6px;
@@ -1382,7 +1383,8 @@ body {
 }
 
 .admin-field-group input:focus,
-.admin-field-group select:focus {
+.admin-field-group select:focus,
+.admin-field-group textarea:focus {
   outline: none;
   border-color: #8b5e3c;
 }
@@ -3278,6 +3280,7 @@ body {
 .form-field select,
 .admin-field-group input,
 .admin-field-group select,
+.admin-field-group textarea,
 .admin-option-add input,
 .auth-field input,
 .admin-preview-field input,
@@ -3292,6 +3295,7 @@ body {
 .form-field select:focus,
 .admin-field-group input:focus,
 .admin-field-group select:focus,
+.admin-field-group textarea:focus,
 .admin-option-add input:focus,
 .auth-field input:focus {
   border-color: rgba(37, 99, 235, 0.65);
@@ -3451,7 +3455,7 @@ body {
 }
 
 .admin-field-grid {
-  grid-template-columns: minmax(150px, 1fr) minmax(170px, 1.2fr) 130px minmax(150px, 1fr) auto;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
 }
 
 .admin-option-tag {
@@ -3471,6 +3475,196 @@ body {
   background: #fef2f2;
   color: var(--danger);
   border-color: #fecaca;
+}
+
+.form-picker-page {
+  height: calc(100vh - 76px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 28px;
+  overflow-y: auto;
+}
+
+.form-picker-page .form-picker {
+  max-width: 720px;
+  width: 100%;
+}
+
+.admin-field-full {
+  grid-column: 1 / -1;
+  margin-top: 4px;
+}
+
+.admin-field-full label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #667078;
+  display: block;
+  margin-bottom: 5px;
+}
+
+.admin-field-full textarea {
+  width: 100%;
+  min-height: 52px;
+  padding: 8px 10px;
+  border: 1px solid #dedfd7;
+  border-radius: 6px;
+  background: white;
+  color: #0a2947;
+  font-size: 13px;
+  resize: vertical;
+  font-family: inherit;
+}
+
+.admin-field-full textarea:focus {
+  outline: none;
+  border-color: #8b5e3c;
+}
+
+.field-description {
+  color: var(--ink-2);
+  font-size: 12px;
+  margin-top: 4px;
+  font-style: italic;
+  line-height: 1.4;
+}
+
+.admin-pdf-label {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  color: var(--ink-0);
+}
+
+.admin-pdf-label input[type="file"] {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.admin-pdf-icon {
+  font-size: 22px;
+  line-height: 1;
+}
+
+.admin-pdf-label strong {
+  display: block;
+  font-size: 14px;
+}
+
+.admin-pdf-label small {
+  display: block;
+  color: var(--ink-2);
+  font-size: 12px;
+  margin-top: 2px;
+}
+
+.business-rules-card {
+  margin-top: 22px;
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface-1);
+  box-shadow: var(--shadow-sm);
+}
+
+.business-rules-grid {
+  display: grid;
+  grid-template-columns: minmax(180px, 220px) 1fr auto;
+  gap: 16px;
+  align-items: end;
+}
+
+.business-rules-list {
+  margin-top: 26px;
+}
+
+.business-rules-list-head {
+  margin-bottom: 12px;
+}
+
+.business-rule-item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  margin-bottom: 8px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-1);
+}
+
+.business-rule-file {
+  font-size: 20px;
+  line-height: 1;
+}
+
+.business-rule-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.business-rule-info strong {
+  display: block;
+  font-size: 14px;
+  color: var(--ink-0);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.business-rule-info small {
+  display: block;
+  color: var(--ink-2);
+  font-size: 12px;
+  margin-top: 2px;
+}
+
+.business-rule-form small {
+  color: var(--ink-2);
+  font-size: 12px;
+}
+
+.toast-notification {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 100;
+  padding: 14px 22px;
+  border-radius: 10px;
+  font-weight: 700;
+  font-size: 14px;
+  max-width: 360px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  animation: toastIn 0.3s ease;
+}
+
+.toast-notification.success {
+  background: #d4edda;
+  color: #155724;
+  border: 1px solid #c3e6cb;
+}
+
+.toast-notification.error {
+  background: #f8d7da;
+  color: #721c24;
+  border: 1px solid #f5c6cb;
+}
+
+@keyframes toastIn {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
 }
 
 .auth-page {
@@ -3532,6 +3726,10 @@ body {
     grid-template-columns: 1fr;
     height: auto;
     overflow: visible;
+  }
+
+  .business-rules-grid {
+    grid-template-columns: 1fr;
   }
 
   .chat-panel {

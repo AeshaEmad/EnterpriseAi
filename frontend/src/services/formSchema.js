@@ -15,6 +15,9 @@ const normalizeField = (field) => ({
   placeholder: field.defaultValue || "",
   options: Array.isArray(field.options) ? field.options : [],
   validation: field.validation || null,
+  description: field.description || "",
+  min: field.min ?? "",
+  max: field.max ?? "",
 });
 
 export function getForms() {
@@ -64,6 +67,9 @@ export async function createFormVersion(formId, versionNumber, fields) {
         defaultValue: field.placeholder || null,
         options: field.type === "select" ? field.options : null,
         validationRules: field.validation || null,
+        description: field.description || null,
+        min: field.min || null,
+        max: field.max || null,
         displayOrder: index,
       }
     );

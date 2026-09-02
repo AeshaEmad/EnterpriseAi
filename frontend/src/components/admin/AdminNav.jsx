@@ -28,7 +28,22 @@ function FormsIcon() {
   );
 }
 
-function AdminNav({ active, onOpenUsers, onOpenForms }) {
+function RulesIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+      <path
+        d="M14 3v4a1 1 0 0 0 1 1h4M8 13h8M8 17h5M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2Z"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function AdminNav({ active, onOpenUsers, onOpenForms, onOpenRules }) {
   return (
     <nav className="admin-section-nav" aria-label="Admin console sections">
       <button
@@ -52,6 +67,18 @@ function AdminNav({ active, onOpenUsers, onOpenForms }) {
         <span>
           <strong>Form Builder</strong>
           <small>Manage form schemas and versions</small>
+        </span>
+      </button>
+
+      <button
+        type="button"
+        className={active === "rules" ? "active" : ""}
+        onClick={onOpenRules}
+      >
+        <span className="admin-section-icon"><RulesIcon /></span>
+        <span>
+          <strong>Business Rules</strong>
+          <small>Upload rules PDFs for AI context</small>
         </span>
       </button>
     </nav>

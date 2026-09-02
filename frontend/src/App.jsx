@@ -5,6 +5,7 @@ import AutoFiller from "./pages/AutoFiller";
 import Home from "./pages/Home";
 import Admin from "./pages/Admin";
 import AdminUsers from "./pages/AdminUsers";
+import BusinessRules from "./pages/BusinessRules";
 import Manager from "./pages/Manager";
 import Login from "./pages/Login";
 import { getSessionUser, logout } from "./services/auth";
@@ -34,6 +35,7 @@ function App() {
 
   const openAdminUsers = () => setView("admin-users");
   const openAdminForms = () => setView("admin-forms");
+  const openAdminRules = () => setView("admin-rules");
   const openManager = () => setView("manager");
 
   if (!user) {
@@ -65,6 +67,7 @@ function App() {
         onBack={() => setView("home")}
         onOpenUsers={openAdminUsers}
         onOpenForms={openAdminForms}
+        onOpenRules={openAdminRules}
       />
     );
   }
@@ -77,6 +80,20 @@ function App() {
         onBack={() => setView("home")}
         onOpenUsers={openAdminUsers}
         onOpenForms={openAdminForms}
+        onOpenRules={openAdminRules}
+      />
+    );
+  }
+
+  if (view === "admin-rules" && isAdmin) {
+    return (
+      <BusinessRules
+        user={user}
+        onLogout={handleLogout}
+        onBack={() => setView("home")}
+        onOpenUsers={openAdminUsers}
+        onOpenForms={openAdminForms}
+        onOpenRules={openAdminRules}
       />
     );
   }

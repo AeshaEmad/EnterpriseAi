@@ -69,6 +69,7 @@ function AdminUsers({
   onBack,
   onOpenUsers,
   onOpenForms,
+  onOpenRules,
 }) {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -307,6 +308,7 @@ function AdminUsers({
           active="users"
           onOpenUsers={onOpenUsers}
           onOpenForms={onOpenForms}
+          onOpenRules={onOpenRules}
         />
 
         <div className="users-page-heading">

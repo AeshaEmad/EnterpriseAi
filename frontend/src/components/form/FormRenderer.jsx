@@ -147,6 +147,7 @@ function FormRenderer({
                 required={field.required}
                 placeholder={field.placeholder}
                 options={field.options}
+                description={field.description}
                 status={
                   hasValidValue(field, formData[field.name])
                     ? fieldSources[field.name]

@@ -8,6 +8,7 @@ function FormField({
   required = false,
   placeholder = "—",
   options = [],
+  description = "",
   status,
   confidence,
   missing = false,
@@ -63,6 +64,10 @@ function FormField({
 
         <FieldStatus status={status} confidence={confidence} />
       </div>
+
+      {description && (
+        <p className="field-description">{description}</p>
+      )}
 
       {isSelect ? (
         <select value={inputValue} onChange={handleChange} data-field-name={name}>
