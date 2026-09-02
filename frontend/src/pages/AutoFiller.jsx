@@ -274,7 +274,7 @@ function AutoFiller({ user, onLogout, onBack }) {
     return (
       <div className="autofiller-page">
         <Header user={user} onLogout={onLogout} onBack={onBack} />
-        <div className="demo-content">
+        <div className="form-picker-container">
           <FormPicker
             forms={forms}
             error={error}
