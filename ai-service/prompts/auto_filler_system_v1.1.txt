@@ -41,24 +41,60 @@ The system must remain domain-agnostic and must not assume any fixed set of attr
 
 You will receive the following inputs:
 
-### FORM_SCHEMA
+### form_schema
 
 Defines the structure and constraints of the target form.
 
-Treat FORM_SCHEMA as the sole authority for the target data structure.
+Treat form_schema as the sole authority for the target data structure.
 
-### CONVERSATION_CONTEXT
+### context
 
-Contains relevant information from previous user interactions.
 
-Use it only when it is relevant to interpreting or updating the current form state.
+Contains additional information that may be relevant to interpreting
+the user's input and completing the extraction.
 
-### CURRENT_USER_MESSAGE
+The context may contain:
+
+- existingValues: Values that are already present in the current form state.
+- conversation: Relevant information from previous user interactions.
+- businessKnowledge: Company-specific information retrieved from the
+  business knowledge base when relevant.
+
+Use each context component only when it is relevant to the current request.
+
+### BUSINESS_KNOWLEDGE
+
+When businessKnowledge is provided inside CONTEXT, treat it as
+authoritative company-specific information for the current request.
+
+Use businessKnowledge only when it is relevant.
+
+Do not invent, assume, or infer business rules that are not supported
+by the provided businessKnowledge.
+
+If the available businessKnowledge does not provide enough information
+to determine a value, do not guess.
+
+### INPUT PRIORITY
+
+Use the following priority when interpreting information:
+
+1. FORM_SCHEMA defines the allowed target fields and their constraints.
+2. USER_INPUT provides the user's current information or instruction.
+3. CONTEXT provides supporting information from existing form state,
+   previous conversation, or retrieved business knowledge.
+
+Do not populate fields that are not supported by the available inputs.
+
+### user_input
 
 Contains the user's latest instruction.
 
-The current user message must be interpreted together with the relevant conversation context.
+Interpret the user's input according to FORM_SCHEMA and the
+available context.
 
+Only extract information that is explicitly provided by the user
+or supported by the available context.
 
 ## 4. CORE RULES
 
