@@ -151,7 +151,7 @@ body {
   height: calc(100vh - 72px);
   min-height: 0;
 
-  overflow: hidden;
+  overflow-y: auto;
 }
 
 
@@ -1264,6 +1264,25 @@ body {
   align-items: center;
   gap: 10px;
   flex-shrink: 0;
+}
+
+.admin-form-select {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink-1);
+}
+
+.admin-form-select select {
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #ffffff;
+  color: var(--ink-0);
+  font-size: 13px;
+  max-width: 200px;
 }
 
 .admin-message {

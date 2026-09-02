@@ -31,6 +31,7 @@ const emptyField = () => ({
 
 function Admin({ user, onLogout, onBack, onOpenUsers, onOpenForms }) {
   const [fields, setFields] = useState([]);
+  const [forms, setForms] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
@@ -41,34 +42,42 @@ function Admin({ user, onLogout, onBack, onOpenUsers, onOpenForms }) {
   const [formDescription, setFormDescription] = useState("");
   const [previewOpen, setPreviewOpen] = useState(false);
 
+  const loadForm = async (form, cancelled) => {
+    const details = await getForm(form.id);
+    if (cancelled) return;
+    if (details.versions.length === 0) {
+      setFormInfo({
+        formId: details.id,
+        formName: details.name,
+        versionNumber: 0,
+      });
+      setFields([]);
+      return;
+    }
+    const schema = await getFormSchema(form.id);
+    if (cancelled) return;
+    setFormInfo(schema);
+    setFields(
+      schema.fields.map((f) => ({
+        ...f,
+        options: f.options || [],
+      }))
+    );
+    setFormName("");
+    setFormDescription("");
+  };
+
   useEffect(() => {
     let cancelled = false;
 
     async function load() {
       try {
-        const forms = await getForms();
-        const selectedForm = forms.find((form) => form.isActive) || forms[0];
+        const allForms = await getForms();
+        if (cancelled) return;
+        setForms(allForms);
+        const selectedForm = allForms.find((form) => form.isActive) || allForms[0];
         if (!selectedForm) return;
-        const details = await getForm(selectedForm.id);
-        if (cancelled) return;
-        if (details.versions.length === 0) {
-          setFormInfo({
-            formId: details.id,
-            formName: details.name,
-            versionNumber: 0,
-          });
-          return;
-        }
-        const schema = await getFormSchema(selectedForm.id);
-
-        if (cancelled) return;
-        setFormInfo(schema);
-        setFields(
-          schema.fields.map((f) => ({
-            ...f,
-            options: f.options || [],
-          }))
-        );
+        await loadForm(selectedForm, cancelled);
       } catch (error) {
         if (!cancelled) setMessage(error.message);
       } finally {
@@ -82,6 +91,24 @@ function Admin({ user, onLogout, onBack, onOpenUsers, onOpenForms }) {
       cancelled = true;
     };
   }, []);
+
+  const handleSelectForm = async (formId) => {
+    if (formId === "new") {
+      handleNewForm();
+      return;
+    }
+    setLoading(true);
+    setMessage("");
+    try {
+      const form = forms.find((f) => f.id === formId);
+      if (!form) return;
+      await loadForm(form, false);
+    } catch (error) {
+      setMessage(error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const updateField = (index, key, value) => {
     setFields((prev) => {
@@ -230,6 +257,21 @@ function Admin({ user, onLogout, onBack, onOpenUsers, onOpenForms }) {
           </div>
 
           <div className="admin-actions">
+            <label className="admin-form-select">
+              <span>Form</span>
+              <select
+                value={formInfo?.formId || "new"}
+                onChange={(e) => handleSelectForm(e.target.value)}
+              >
+                {!formInfo && <option value="new">+ New Form ...</option>}
+                {forms.map((form) => (
+                  <option key={form.id} value={form.id}>
+                    {form.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+
             {message && (
               <span
                 className={`admin-message ${
