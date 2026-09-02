@@ -1,0 +1,13 @@
+Company Loan Policy
+
+Employees with at least one year of employment are eligible
+to apply for a standard company loan.
+
+The maximum standard loan amount is 300000 EGP.
+
+Employees classified as interns are not eligible for standard loans.
+
+Loan applications above the maximum amount require management approval.
+
+The employee's department and employment type must be provided
+before the loan application can be processed.
