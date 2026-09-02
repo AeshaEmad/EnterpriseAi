@@ -17,7 +17,8 @@ namespace EnterpriseAI.Controllers
         {
             var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? string.Empty;
             var isAdmin = User.IsInRole("Admin");
-            var forms = await _formService.GetAllAsync(currentUserId, isAdmin, cancellationToken);
+            var isManager = User.IsInRole("Manager");
+            var forms = await _formService.GetAllAsync(currentUserId, isAdmin, isManager, cancellationToken);
             return Ok(forms);
         }
 
@@ -26,7 +27,8 @@ namespace EnterpriseAI.Controllers
         {
             var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? string.Empty;
             var isAdmin = User.IsInRole("Admin");
-            var form = await _formService.GetByIdAsync(id, currentUserId, isAdmin, cancellationToken);
+            var isManager = User.IsInRole("Manager");
+            var form = await _formService.GetByIdAsync(id, currentUserId, isAdmin, isManager, cancellationToken);
             return form is null ? NotFound() : Ok(form);
         }
 
@@ -35,7 +37,8 @@ namespace EnterpriseAI.Controllers
         {
             var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? string.Empty;
             var isAdmin = User.IsInRole("Admin");
-            var schema = await _formService.GetSchemaAsync(id, currentUserId, isAdmin, cancellationToken);
+            var isManager = User.IsInRole("Manager");
+            var schema = await _formService.GetSchemaAsync(id, currentUserId, isAdmin, isManager, cancellationToken);
             return schema is null ? NotFound() : Ok(schema);
         }
 

@@ -27,11 +27,11 @@ namespace EnterpriseAI.Services.Implementations
             _formAccess = formAccess;
         }
 
-        public async Task<IEnumerable<FormDto>> GetAllAsync(string currentUserId, bool isAdmin, CancellationToken cancellationToken = default)
+        public async Task<IEnumerable<FormDto>> GetAllAsync(string currentUserId, bool isAdmin, bool isManager, CancellationToken cancellationToken = default)
         {
             var forms = await _forms.GetAllAsync(cancellationToken);
 
-            if (isAdmin)
+            if (isAdmin || isManager)
             {
                 return forms.Select(f => f.ToDto());
             }
@@ -42,9 +42,9 @@ namespace EnterpriseAI.Services.Implementations
             return forms.Where(f => allowedFormIds.Contains(f.Id)).Select(f => f.ToDto());
         }
 
-        public async Task<FormDetailDto?> GetByIdAsync(string id, string currentUserId, bool isAdmin, CancellationToken cancellationToken = default)
+        public async Task<FormDetailDto?> GetByIdAsync(string id, string currentUserId, bool isAdmin, bool isManager, CancellationToken cancellationToken = default)
         {
-            if (!isAdmin && !await _formAccess.HasAccessAsync(currentUserId, id, cancellationToken))
+            if (!isAdmin && !isManager && !await _formAccess.HasAccessAsync(currentUserId, id, cancellationToken))
             {
                 throw new UnauthorizedAccessException("You do not have access to this form.");
             }
@@ -57,9 +57,9 @@ namespace EnterpriseAI.Services.Implementations
             return form?.ToDetailDto();
         }
 
-        public async Task<FormSchemaDto?> GetSchemaAsync(string id, string currentUserId, bool isAdmin, CancellationToken cancellationToken = default)
+        public async Task<FormSchemaDto?> GetSchemaAsync(string id, string currentUserId, bool isAdmin, bool isManager, CancellationToken cancellationToken = default)
         {
-            if (!isAdmin && !await _formAccess.HasAccessAsync(currentUserId, id, cancellationToken))
+            if (!isAdmin && !isManager && !await _formAccess.HasAccessAsync(currentUserId, id, cancellationToken))
             {
                 throw new UnauthorizedAccessException("You do not have access to this form.");
             }

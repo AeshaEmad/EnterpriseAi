@@ -38,7 +38,7 @@ export function approveFormVersion(formId, versionId) {
 export function rejectFormVersion(formId, versionId, comment) {
   return post(
     `/forms/${encodeURIComponent(formId)}/versions/${encodeURIComponent(versionId)}/reject`,
-    { comment }
+    { Comment: comment }
   );
 }
 
