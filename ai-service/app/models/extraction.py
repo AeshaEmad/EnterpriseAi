@@ -32,6 +32,7 @@ class FormField(BaseModel):
     defaultValue: Any | None = None
     options: list[Any] | None = None
     validation: dict[str, Any] | None = None
+    description: str = ""
 
 
 class FormSchema(BaseModel):

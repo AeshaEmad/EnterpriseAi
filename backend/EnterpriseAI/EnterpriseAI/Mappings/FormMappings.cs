@@ -47,6 +47,7 @@ namespace EnterpriseAI.Mappings
                 field.DefaultValue,
                 field.Options,
                 field.ValidationRules,
+                field.Description,
                 field.DisplayOrder);
         }
 
@@ -69,7 +70,8 @@ namespace EnterpriseAI.Mappings
                 field.IsRequired,
                 field.DefaultValue,
                 field.Options,
-                field.ValidationRules);
+                field.ValidationRules,
+                field.Description);
         }
 
         public static Form ToEntity(this CreateFormDto dto)
@@ -113,6 +115,7 @@ namespace EnterpriseAI.Mappings
                 DefaultValue = dto.DefaultValue,
                 Options = dto.Options,
                 ValidationRules = dto.ValidationRules,
+                Description = dto.Description,
                 DisplayOrder = dto.DisplayOrder,
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow
