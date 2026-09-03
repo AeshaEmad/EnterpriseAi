@@ -1,5 +1,20 @@
-const BASE_URL = (import.meta.env.VITE_API_BASE_URL || "http://localhost:5000/api")
-  .replace(/\/$/, "");
+const resolveBaseUrl = () => {
+  const envUrl = import.meta.env.VITE_API_BASE_URL;
+  if (typeof window !== "undefined") {
+    const isLocal =
+      window.location.hostname === "localhost" ||
+      window.location.hostname === "127.0.0.1";
+    if (!isLocal) {
+      if (!envUrl || envUrl.includes("localhost") || envUrl.includes("127.0.0.1")) {
+        return "http://enterpriseai.runasp.net/api";
+      }
+      return envUrl;
+    }
+  }
+  return envUrl || "http://localhost:5000/api";
+};
+
+const BASE_URL = resolveBaseUrl().replace(/\/$/, "");
 
 const TOKEN_KEY = "autofiller_token";
 
