@@ -32,7 +32,8 @@ namespace EnterpriseAI.Mappings
                 version.Status,
                 version.IsActive,
                 version.CreatedAt,
-                version.PublishedAt);
+                version.PublishedAt,
+                version.Fields?.OrderBy(f => f.DisplayOrder).Select(f => f.ToDto()).ToList());
         }
 
         public static FormFieldDto ToDto(this FormField field)
@@ -81,7 +82,7 @@ namespace EnterpriseAI.Mappings
                 Id = Guid.NewGuid().ToString(),
                 Name = dto.Name,
                 Description = dto.Description,
-                IsActive = true,
+                IsActive = false,
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow
             };

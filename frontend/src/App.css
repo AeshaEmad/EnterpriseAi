@@ -3946,13 +3946,12 @@ body {
 
 .approval-card {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 18px;
-  padding: 18px 20px;
+  flex-direction: column;
+  gap: 16px;
+  padding: 20px 22px;
   margin-top: 16px;
   border: 1px solid var(--line);
-  border-radius: 12px;
+  border-radius: 14px;
   background: #ffffff;
   box-shadow: var(--shadow-sm);
   transition: 0.2s;
@@ -3961,6 +3960,129 @@ body {
 .approval-card:hover {
   border-color: var(--line-strong);
   box-shadow: var(--shadow-md);
+}
+
+.approval-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  width: 100%;
+}
+
+.approval-type-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.approval-type-badge.new-form {
+  background: #ecfdf5;
+  color: #059669;
+  border: 1px solid rgba(5, 150, 105, 0.25);
+}
+
+.approval-type-badge.update-form {
+  background: #eff6ff;
+  color: #2563eb;
+  border: 1px solid rgba(37, 99, 235, 0.25);
+}
+
+.approval-prev-note {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ink-2);
+  background: var(--surface-2);
+  padding: 3px 8px;
+  border-radius: 6px;
+}
+
+.approval-fields-toggle {
+  background: none;
+  border: none;
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 4px 0;
+  margin-top: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.approval-fields-toggle:hover {
+  text-decoration: underline;
+}
+
+.approval-fields-table-wrap {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  overflow-x: auto;
+  background: var(--surface-1);
+}
+
+.approval-fields-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.approval-fields-table th {
+  background: var(--surface-2);
+  color: var(--ink-2);
+  text-transform: uppercase;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  padding: 8px 12px;
+  text-align: left;
+  border-bottom: 1px solid var(--line);
+}
+
+.approval-fields-table td {
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--line);
+  color: var(--ink-0);
+  vertical-align: middle;
+}
+
+.approval-fields-table tr:last-child td {
+  border-bottom: none;
+}
+
+.field-type-pill {
+  display: inline-block;
+  padding: 2px 7px;
+  border-radius: 6px;
+  background: #e0f2fe;
+  color: #0284c7;
+  font-size: 11px;
+  font-weight: 700;
+  font-family: monospace;
+}
+
+.field-req-pill {
+  display: inline-block;
+  padding: 2px 6px;
+  border-radius: 6px;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.field-req-pill.required {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+.field-req-pill.optional {
+  background: var(--surface-2);
+  color: var(--ink-2);
 }
 
 .approval-info {

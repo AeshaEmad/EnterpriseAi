@@ -29,6 +29,29 @@ function formatDate(value) {
   }).format(date);
 }
 
+function formatConstraints(field) {
+  const rules = field.validationRules || field.validation;
+  const parts = [];
+
+  if (rules?.min !== undefined && rules?.min !== null) {
+    parts.push(`Min: ${rules.min}`);
+  }
+  if (rules?.max !== undefined && rules?.max !== null) {
+    parts.push(`Max: ${rules.max}`);
+  }
+  if (rules?.minLength !== undefined && rules?.minLength !== null) {
+    parts.push(`Min Length: ${rules.minLength}`);
+  }
+  if (rules?.maxLength !== undefined && rules?.maxLength !== null) {
+    parts.push(`Max Length: ${rules.maxLength}`);
+  }
+  if (Array.isArray(field.options) && field.options.length > 0) {
+    parts.push(`Options: [${field.options.join(", ")}]`);
+  }
+
+  return parts.length > 0 ? parts.join(" · ") : "None";
+}
+
 function StatusBadge({ status }) {
   const meta = STATUS_LABELS[status] || {
     text: status || "Unknown",
@@ -51,6 +74,14 @@ function Manager({ user, onLogout, onBack }) {
   const [rejectTarget, setRejectTarget] = useState(null);
   const [rejectComment, setRejectComment] = useState("");
   const [rejecting, setRejecting] = useState(false);
+  const [expandedVersions, setExpandedVersions] = useState({});
+
+  const toggleExpand = (versionId) => {
+    setExpandedVersions((prev) => ({
+      ...prev,
+      [versionId]: prev[versionId] === undefined ? false : !prev[versionId],
+    }));
+  };
 
   const loadForms = useCallback(async () => {
     try {
@@ -184,43 +215,176 @@ function Manager({ user, onLogout, onBack }) {
               No forms are waiting for approval right now.
             </div>
           ) : (
-            pendingVersions.map(({ form, version }) => (
-              <div className="approval-card" key={version.id}>
-                <div className="approval-info">
-                  <StatusBadge status={version.status} />
-                  <h3>{form.name || "Untitled form"}</h3>
-                  <p className="approval-meta">
-                    Version {version.versionNumber} · submitted{" "}
-                    {formatDate(version.publishedAt || version.createdAt)}
-                  </p>
-                  {form.description && (
-                    <p className="approval-desc">{form.description}</p>
+            pendingVersions.map(({ form, version }) => {
+              const fields = version.fields || [];
+              const isNewForm =
+                version.versionNumber === 1 ||
+                !(form.versions || []).some(
+                  (v) => v.id !== version.id && v.status === formVersionStatus.Published
+                );
+              const isExpanded = expandedVersions[version.id] ?? true;
+              const publishedVersion = (form.versions || []).find(
+                (v) => v.id !== version.id && v.status === formVersionStatus.Published
+              );
+
+              return (
+                <div className="approval-card" key={version.id}>
+                  <div className="approval-card-header">
+                    <div className="approval-info">
+                      <div
+                        style={{
+                          display: "flex",
+                          gap: "8px",
+                          alignItems: "center",
+                          flexWrap: "wrap",
+                          marginBottom: "6px",
+                        }}
+                      >
+                        <StatusBadge status={version.status} />
+                        <span
+                          className={`approval-type-badge ${
+                            isNewForm ? "new-form" : "update-form"
+                          }`}
+                        >
+                          {isNewForm
+                            ? "✨ New Form Creation"
+                            : `📝 Schema Update (v${version.versionNumber})`}
+                        </span>
+                        {publishedVersion && (
+                          <span className="approval-prev-note">
+                            Previous Live Version: v{publishedVersion.versionNumber}
+                          </span>
+                        )}
+                      </div>
+
+                      <h3>{form.name || "Untitled form"}</h3>
+                      <p className="approval-meta">
+                        Version {version.versionNumber} · submitted{" "}
+                        {formatDate(version.publishedAt || version.createdAt)} ·{" "}
+                        <strong>
+                          {fields.length} Field{fields.length === 1 ? "" : "s"}
+                        </strong>
+                      </p>
+
+                      {form.description && (
+                        <p className="approval-desc">{form.description}</p>
+                      )}
+
+                      <button
+                        type="button"
+                        className="approval-fields-toggle"
+                        onClick={() => toggleExpand(version.id)}
+                      >
+                        {isExpanded
+                          ? "▲ Hide Field Details & Constraints"
+                          : `▼ Review Field Details & Constraints (${fields.length})`}
+                      </button>
+                    </div>
+
+                    <div className="approval-actions">
+                      <Button
+                        variant="secondary"
+                        disabled={acting === `${version.id}:approve`}
+                        onClick={() => handleApprove(form, version)}
+                      >
+                        {acting === `${version.id}:approve`
+                          ? "Approving..."
+                          : "Approve & Publish"}
+                      </Button>
+
+                      <Button
+                        variant="danger"
+                        disabled={acting === `${version.id}:reject`}
+                        onClick={() => setRejectTarget({ form, version })}
+                      >
+                        Reject
+                      </Button>
+                    </div>
+                  </div>
+
+                  {isExpanded && (
+                    <div className="approval-fields-table-wrap">
+                      {fields.length === 0 ? (
+                        <div
+                          style={{
+                            padding: "16px",
+                            color: "var(--ink-2)",
+                            fontSize: "13px",
+                          }}
+                        >
+                          No fields defined for this version schema.
+                        </div>
+                      ) : (
+                        <table className="approval-fields-table">
+                          <thead>
+                            <tr>
+                              <th style={{ width: "36px" }}>#</th>
+                              <th>Field Label & Name</th>
+                              <th>Type</th>
+                              <th>Requirement</th>
+                              <th>Constraints / Rules</th>
+                              <th>Field Description</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {fields.map((f, idx) => (
+                              <tr key={f.id || f.fieldName || idx}>
+                                <td>{idx + 1}</td>
+                                <td>
+                                  <strong>{f.fieldLabel}</strong>
+                                  <div
+                                    style={{
+                                      color: "var(--ink-2)",
+                                      fontSize: "11px",
+                                      fontFamily: "monospace",
+                                    }}
+                                  >
+                                    {f.fieldName}
+                                  </div>
+                                </td>
+                                <td>
+                                  <span className="field-type-pill">
+                                    {f.fieldType}
+                                  </span>
+                                </td>
+                                <td>
+                                  <span
+                                    className={`field-req-pill ${
+                                      f.isRequired ? "required" : "optional"
+                                    }`}
+                                  >
+                                    {f.isRequired ? "Required" : "Optional"}
+                                  </span>
+                                </td>
+                                <td>
+                                  <span
+                                    style={{
+                                      fontSize: "12px",
+                                      color: "var(--ink-1)",
+                                    }}
+                                  >
+                                    {formatConstraints(f)}
+                                  </span>
+                                </td>
+                                <td
+                                  style={{
+                                    color: "var(--ink-1)",
+                                    maxWidth: "280px",
+                                    lineHeight: "1.4",
+                                  }}
+                                >
+                                  {f.description || "—"}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      )}
+                    </div>
                   )}
                 </div>
-
-                <div className="approval-actions">
-                  <Button
-                    variant="secondary"
-                    disabled={acting === `${version.id}:approve`}
-                    onClick={() => handleApprove(form, version)}
-                  >
-                    {acting === `${version.id}:approve`
-                      ? "Approving..."
-                      : "Approve"}
-                  </Button>
-
-                  <Button
-                    variant="danger"
-                    disabled={
-                      acting === `${version.id}:reject`
-                    }
-                    onClick={() => setRejectTarget({ form, version })}
-                  >
-                    Reject
-                  </Button>
-                </div>
-              </div>
-            ))
+              );
+            })
           )
         ) : forms.length === 0 ? (
           <div className="admin-empty">No forms available yet.</div>

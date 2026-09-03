@@ -22,7 +22,8 @@ namespace EnterpriseAI.DTOs.Forms
         string Status,
         bool IsActive,
         DateTime CreatedAt,
-        DateTime? PublishedAt);
+        DateTime? PublishedAt,
+        IReadOnlyList<FormFieldDto>? Fields = null);
 
     public record FormFieldDto(
         string Id,
