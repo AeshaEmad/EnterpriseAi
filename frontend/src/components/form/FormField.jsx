@@ -45,9 +45,8 @@ function FormField({
 
   return (
     <div
-      className={`form-field ${status || ""} ${
-        missing ? "missing" : ""
-      }`}
+      className={`form-field ${status || ""} ${missing ? "missing" : ""
+        }`}
       data-field-name={name}
     >
       <div className="field-label">

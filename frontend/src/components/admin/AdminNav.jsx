@@ -43,13 +43,30 @@ function RulesIcon() {
   );
 }
 
+import { useLocation, useNavigate } from "react-router-dom";
+
 function AdminNav({ active, onOpenUsers, onOpenForms, onOpenRules }) {
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  const currentActive =
+    active ||
+    (location.pathname === "/admin/forms"
+      ? "forms"
+      : location.pathname === "/admin/rules"
+      ? "rules"
+      : "users");
+
+  const handleUsers = onOpenUsers || (() => navigate("/admin/users"));
+  const handleForms = onOpenForms || (() => navigate("/admin/forms"));
+  const handleRules = onOpenRules || (() => navigate("/admin/rules"));
+
   return (
     <nav className="admin-section-nav" aria-label="Admin console sections">
       <button
         type="button"
-        className={active === "users" ? "active" : ""}
-        onClick={onOpenUsers}
+        className={currentActive === "users" ? "active" : ""}
+        onClick={handleUsers}
       >
         <span className="admin-section-icon"><UsersIcon /></span>
         <span>
@@ -60,8 +77,8 @@ function AdminNav({ active, onOpenUsers, onOpenForms, onOpenRules }) {
 
       <button
         type="button"
-        className={active === "forms" ? "active" : ""}
-        onClick={onOpenForms}
+        className={currentActive === "forms" ? "active" : ""}
+        onClick={handleForms}
       >
         <span className="admin-section-icon"><FormsIcon /></span>
         <span>
@@ -72,8 +89,8 @@ function AdminNav({ active, onOpenUsers, onOpenForms, onOpenRules }) {
 
       <button
         type="button"
-        className={active === "rules" ? "active" : ""}
-        onClick={onOpenRules}
+        className={currentActive === "rules" ? "active" : ""}
+        onClick={handleRules}
       >
         <span className="admin-section-icon"><RulesIcon /></span>
         <span>
