@@ -89,6 +89,10 @@ namespace EnterpriseAI.DTOs.Forms
 
         public JsonNode? ValidationRules { get; set; }
 
+        public decimal? Min { get; set; }
+
+        public decimal? Max { get; set; }
+
         [Required(ErrorMessage = "Field description is required.")]
         public string Description { get; set; } = string.Empty;
 

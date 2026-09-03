@@ -104,6 +104,18 @@ namespace EnterpriseAI.Mappings
 
         public static FormField ToEntity(this CreateFormFieldDto dto, string formVersionId)
         {
+            var rulesObj = dto.ValidationRules as JsonObject ?? new JsonObject();
+            if (dto.Min.HasValue && !rulesObj.ContainsKey("min"))
+            {
+                rulesObj["min"] = dto.Min.Value;
+            }
+            if (dto.Max.HasValue && !rulesObj.ContainsKey("max"))
+            {
+                rulesObj["max"] = dto.Max.Value;
+            }
+
+            JsonNode? finalValidationRules = rulesObj.Count > 0 ? rulesObj : dto.ValidationRules;
+
             return new FormField
             {
                 Id = Guid.NewGuid().ToString(),
@@ -114,7 +126,7 @@ namespace EnterpriseAI.Mappings
                 IsRequired = dto.IsRequired,
                 DefaultValue = dto.DefaultValue,
                 Options = dto.Options,
-                ValidationRules = dto.ValidationRules,
+                ValidationRules = finalValidationRules,
                 Description = dto.Description,
                 DisplayOrder = dto.DisplayOrder,
                 CreatedAt = DateTime.UtcNow,

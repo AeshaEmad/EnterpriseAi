@@ -7,18 +7,21 @@ export const formVersionStatus = {
   Rejected: "Rejected",
 };
 
-const normalizeField = (field) => ({
-  name: field.name,
-  label: field.label,
-  type: field.type,
-  required: Boolean(field.required),
-  placeholder: field.defaultValue || "",
-  options: Array.isArray(field.options) ? field.options : [],
-  validation: field.validation || null,
-  description: field.description || "",
-  min: field.min ?? "",
-  max: field.max ?? "",
-});
+const normalizeField = (field) => {
+  const validation = field.validationRules || field.validation || null;
+  return {
+    name: field.fieldName || field.name,
+    label: field.fieldLabel || field.label,
+    type: field.fieldType || field.type,
+    required: Boolean(field.isRequired ?? field.required),
+    placeholder: field.defaultValue || "",
+    options: Array.isArray(field.options) ? field.options : [],
+    validation: validation,
+    description: field.description || "",
+    min: validation?.min ?? field.min ?? "",
+    max: validation?.max ?? field.max ?? "",
+  };
+};
 
 export function getForms() {
   return get("/forms");
@@ -57,6 +60,19 @@ export async function createFormVersion(formId, versionNumber, fields) {
   });
 
   for (const [index, field] of fields.entries()) {
+    let validationRules = field.validation ? { ...field.validation } : {};
+
+    if (field.type === "number") {
+      if (field.min !== "" && field.min !== null && field.min !== undefined) {
+        validationRules.min = Number(field.min);
+      }
+      if (field.max !== "" && field.max !== null && field.max !== undefined) {
+        validationRules.max = Number(field.max);
+      }
+    }
+
+    const hasRules = Object.keys(validationRules).length > 0;
+
     await post(
       `/forms/${encodeURIComponent(formId)}/versions/${encodeURIComponent(version.id)}/fields`,
       {
@@ -66,10 +82,10 @@ export async function createFormVersion(formId, versionNumber, fields) {
         isRequired: Boolean(field.required),
         defaultValue: field.placeholder || null,
         options: field.type === "select" ? field.options : null,
-        validationRules: field.validation || null,
-        description: field.description || null,
-        min: field.min || null,
-        max: field.max || null,
+        validationRules: hasRules ? validationRules : null,
+        description: field.description || "",
+        min: field.min !== "" && field.min !== null ? Number(field.min) : null,
+        max: field.max !== "" && field.max !== null ? Number(field.max) : null,
         displayOrder: index,
       }
     );
