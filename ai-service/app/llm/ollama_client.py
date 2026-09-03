@@ -15,11 +15,11 @@ class OllamaClient:
 
         self.model = os.getenv(
             "OLLAMA_MODEL",
-            "qwen3:0.6b"
+            "qwen3.5:latest"
         )
 
         self.timeout_seconds = float(
-            os.getenv("OLLAMA_TIMEOUT_SECONDS", "120")
+            os.getenv("OLLAMA_TIMEOUT_SECONDS", "180")
         )
 
     def generate(
