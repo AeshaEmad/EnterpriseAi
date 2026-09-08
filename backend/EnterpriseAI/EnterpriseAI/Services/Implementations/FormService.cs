@@ -13,35 +13,48 @@ namespace EnterpriseAI.Services.Implementations
         private readonly IRepository<Form> _forms;
         private readonly IRepository<FormVersion> _versions;
         private readonly IRepository<FormField> _fields;
+        private readonly IFormAccessService _formAccess;
 
         public FormService(
             IRepository<Form> forms,
             IRepository<FormVersion> versions,
-            IRepository<FormField> fields)
+            IRepository<FormField> fields,
+            IFormAccessService formAccess)
         {
             _forms = forms;
             _versions = versions;
             _fields = fields;
+            _formAccess = formAccess;
         }
 
-        public async Task<IEnumerable<FormDto>> GetAllAsync(CancellationToken cancellationToken = default)
+        public async Task<IEnumerable<FormDto>> GetAllAsync(string currentUserId, bool isAdmin, bool isManager, CancellationToken cancellationToken = default)
         {
-            var forms = await _forms.GetAllAsync(cancellationToken);
-            return forms.Select(f => f.ToDto());
+            var forms = (await _forms.GetAllAsync(cancellationToken)).ToList();
+
+            if (isAdmin || isManager)
+            {
+                return forms.Select(f => f.ToDto());
+            }
+
+            var activeVersions = await _versions.GetManyAsync(
+                v => v.Status == FormVersionStatus.Published && v.IsActive, cancellationToken);
+            var formsWithPublishedActiveVersion = activeVersions.Select(v => v.FormId).ToHashSet();
+
+            var accessible = await _formAccess.GetAccessForUserAsync(currentUserId, cancellationToken);
+            var allowedFormIds = accessible.Select(a => a.FormId).ToHashSet();
+
+            return forms
+                .Where(f => f.IsActive && allowedFormIds.Contains(f.Id) && formsWithPublishedActiveVersion.Contains(f.Id))
+                .Select(f => f.ToDto());
         }
 
-        public async Task<FormDetailDto?> GetByIdAsync(string id, CancellationToken cancellationToken = default)
+        public async Task<FormDetailDto?> GetByIdAsync(string id, string currentUserId, bool isAdmin, bool isManager, CancellationToken cancellationToken = default)
         {
-            var form = await _forms.GetFirstAsync(
-                f => f.Id == id,
-                new Expression<Func<Form, object>>[] { f => f.Versions },
-                cancellationToken);
+            if (!isAdmin && !isManager && !await _formAccess.HasAccessAsync(currentUserId, id, cancellationToken))
+            {
+                throw new UnauthorizedAccessException("You do not have access to this form.");
+            }
 
-            return form?.ToDetailDto();
-        }
-
-        public async Task<FormSchemaDto?> GetSchemaAsync(string id, CancellationToken cancellationToken = default)
-        {
             var form = await _forms.GetFirstAsync(
                 f => f.Id == id,
                 new Expression<Func<Form, object>>[] { f => f.Versions },
@@ -52,10 +65,47 @@ namespace EnterpriseAI.Services.Implementations
                 return null;
             }
 
-            var version = form.Versions
-                .OrderByDescending(v => v.IsActive ? 1 : 0)
-                .ThenByDescending(v => v.VersionNumber)
-                .FirstOrDefault();
+            var versionIds = form.Versions.Select(v => v.Id).ToList();
+            var allFields = await _fields.GetManyAsync(f => versionIds.Contains(f.FormVersionId), cancellationToken);
+            var fieldsByVersion = allFields.GroupBy(f => f.FormVersionId).ToDictionary(g => g.Key, g => g.ToList());
+
+            foreach (var v in form.Versions)
+            {
+                if (fieldsByVersion.TryGetValue(v.Id, out var fList))
+                {
+                    v.Fields = fList;
+                }
+            }
+
+            return form.ToDetailDto();
+        }
+
+        public async Task<FormSchemaDto?> GetSchemaAsync(string id, string currentUserId, bool isAdmin, bool isManager, CancellationToken cancellationToken = default)
+        {
+            if (!isAdmin && !isManager && !await _formAccess.HasAccessAsync(currentUserId, id, cancellationToken))
+            {
+                throw new UnauthorizedAccessException("You do not have access to this form.");
+            }
+
+            var form = await _forms.GetFirstAsync(
+                f => f.Id == id,
+                new Expression<Func<Form, object>>[] { f => f.Versions },
+                cancellationToken);
+
+            if (form is null)
+            {
+                return null;
+            }
+
+            var version = (isAdmin || isManager)
+                ? form.Versions
+                    .OrderByDescending(v => v.IsActive ? 1 : 0)
+                    .ThenByDescending(v => v.VersionNumber)
+                    .FirstOrDefault()
+                : form.Versions
+                    .Where(v => v.Status == FormVersionStatus.Published && v.IsActive)
+                    .OrderByDescending(v => v.VersionNumber)
+                    .FirstOrDefault();
 
             if (version is null)
             {
@@ -187,6 +237,16 @@ namespace EnterpriseAI.Services.Implementations
             version.PublishedAt = DateTime.UtcNow;
             version.UpdatedAt = DateTime.UtcNow;
             _versions.Update(version);
+
+            var form = await _forms.GetFirstAsync(f => f.Id == formId, cancellationToken);
+            if (form is not null && !form.IsActive)
+            {
+                form.IsActive = true;
+                form.UpdatedAt = DateTime.UtcNow;
+                _forms.Update(form);
+                await _forms.SaveChangesAsync(cancellationToken);
+            }
+
             await _versions.SaveChangesAsync(cancellationToken);
             return version.ToDto();
         }

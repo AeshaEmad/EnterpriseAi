@@ -14,7 +14,10 @@ namespace EnterpriseAI.Services.Implementations
         public async Task<IEnumerable<UserDto>> GetAllAsync(CancellationToken cancellationToken = default)
         {
             var users = await _repository.GetAllAsync(cancellationToken);
-            return users.Select(u => u.ToDto());
+            return users
+                .OrderByDescending(u => u.CreatedAt)
+                .ThenBy(u => u.FullName)
+                .Select(u => u.ToDto());
         }
 
         public async Task<UserDto?> GetByIdAsync(string id, CancellationToken cancellationToken = default)
@@ -25,8 +28,12 @@ namespace EnterpriseAI.Services.Implementations
 
         public async Task<UserDto> CreateAsync(CreateUserDto dto, CancellationToken cancellationToken = default)
         {
+            var email = dto.Email.Trim();
+            var fullName = dto.FullName.Trim();
+            var role = NormalizeRole(dto.Role);
+
             var existing = await _repository.GetFirstAsync(
-                u => u.Email.ToLower() == dto.Email.ToLower(), cancellationToken);
+                u => u.Email.ToLower() == email.ToLower(), cancellationToken);
 
             if (existing is not null)
             {
@@ -34,6 +41,9 @@ namespace EnterpriseAI.Services.Implementations
             }
 
             var user = dto.ToEntity(string.Empty);
+            user.FullName = fullName;
+            user.Email = email;
+            user.Role = role;
             user.PasswordHash = _passwordHasher.HashPassword(user, dto.Password);
 
             await _repository.AddAsync(user, cancellationToken);
@@ -66,6 +76,16 @@ namespace EnterpriseAI.Services.Implementations
             _repository.Delete(user);
             await _repository.SaveChangesAsync(cancellationToken);
             return true;
+        }
+
+        private static string NormalizeRole(string role)
+        {
+            return role.Trim().ToLowerInvariant() switch
+            {
+                "admin" => "Admin",
+                "manager" => "Manager",
+                _ => "User"
+            };
         }
     }
 }

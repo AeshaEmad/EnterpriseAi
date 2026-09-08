@@ -1,4 +1,10 @@
-function Header({ user, onLogout, onBack }) {
+function Header({
+  user,
+  onLogout,
+  onBack,
+  eyebrow = "AUTO-FILLER",
+  title = "Live Demo",
+}) {
   return (
     <header className="demo-header">
       <div className="header-left">
@@ -6,14 +12,14 @@ function Header({ user, onLogout, onBack }) {
           className="back-button"
           type="button"
           onClick={onBack}
+          aria-label="Go back"
         >
           ←
         </button>
 
         <div className="header-title">
-          <div className="breadcrumb">AUTO-FILLER</div>
-
-          <h1>Live Demo</h1>
+          <div className="breadcrumb">{eyebrow}</div>
+          <h1>{title}</h1>
         </div>
       </div>
 

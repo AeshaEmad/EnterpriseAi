@@ -1,4 +1,4 @@
-﻿namespace EnterpriseAI.Models
+namespace EnterpriseAI.Models
 {
     public class FormField
     {
@@ -11,6 +11,7 @@
         public string? DefaultValue { get; set; }
         public JsonNode? Options { get; set; }
         public JsonNode? ValidationRules { get; set; }
+        public string Description { get; set; } = string.Empty;
         public int DisplayOrder { get; set; }
         public DateTime CreatedAt { get; set; }
         public DateTime UpdatedAt { get; set; }

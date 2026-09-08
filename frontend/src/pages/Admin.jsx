@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import Header from "../components/layout/Header";
 import Button from "../components/common/Button";
 import Modal from "../components/common/Modal";
+import AdminNav from "../components/admin/AdminNav";
 import {
   createForm,
   createFormVersion,
@@ -26,50 +27,73 @@ const emptyField = () => ({
   required: false,
   placeholder: "",
   options: [],
+  description: "",
+  min: "",
+  max: "",
 });
 
-function Admin({ user, onLogout, onBack }) {
+function Admin({ user, onLogout, onBack, onOpenUsers, onOpenForms, onOpenRules }) {
   const [fields, setFields] = useState([]);
+  const [forms, setForms] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState("");
   const [editingOptions, setEditingOptions] = useState(null);
   const [optionInput, setOptionInput] = useState("");
   const [formInfo, setFormInfo] = useState(null);
   const [formName, setFormName] = useState("");
   const [formDescription, setFormDescription] = useState("");
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [toast, setToast] = useState({ show: false, text: "", type: "" });
+
+  const showToast = (text, type = "success") => {
+    setToast({ show: true, text, type });
+  };
+
+  useEffect(() => {
+    if (toast.show) {
+      const timer = setTimeout(() => setToast({ show: false, text: "", type: "" }), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [toast.show]);
+
+  const loadForm = async (form, cancelled) => {
+    const details = await getForm(form.id);
+    if (cancelled) return;
+    if (details.versions.length === 0) {
+      setFormInfo({
+        formId: details.id,
+        formName: details.name,
+        versionNumber: 0,
+      });
+      setFields([]);
+      return;
+    }
+    const schema = await getFormSchema(form.id);
+    if (cancelled) return;
+    setFormInfo(schema);
+    setFields(
+      schema.fields.map((f) => ({
+        ...f,
+        options: f.options || [],
+      }))
+    );
+    setFormName("");
+    setFormDescription("");
+  };
 
   useEffect(() => {
     let cancelled = false;
 
     async function load() {
       try {
-        const forms = await getForms();
-        const selectedForm = forms.find((form) => form.isActive) || forms[0];
+        const allForms = await getForms();
+        if (cancelled) return;
+        setForms(allForms);
+        const selectedForm = allForms.find((form) => form.isActive) || allForms[0];
         if (!selectedForm) return;
-        const details = await getForm(selectedForm.id);
-        if (cancelled) return;
-        if (details.versions.length === 0) {
-          setFormInfo({
-            formId: details.id,
-            formName: details.name,
-            versionNumber: 0,
-          });
-          return;
-        }
-        const schema = await getFormSchema(selectedForm.id);
-
-        if (cancelled) return;
-        setFormInfo(schema);
-        setFields(
-          schema.fields.map((f) => ({
-            ...f,
-            options: f.options || [],
-          }))
-        );
+        await loadForm(selectedForm, cancelled);
       } catch (error) {
-        if (!cancelled) setMessage(error.message);
+        if (!cancelled) showToast(error.message, "error");
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -81,6 +105,23 @@ function Admin({ user, onLogout, onBack }) {
       cancelled = true;
     };
   }, []);
+
+  const handleSelectForm = async (formId) => {
+    if (formId === "new") {
+      handleNewForm();
+      return;
+    }
+    setLoading(true);
+    try {
+      const form = forms.find((f) => f.id === formId);
+      if (!form) return;
+      await loadForm(form, false);
+    } catch (error) {
+      showToast(error.message, "error");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const updateField = (index, key, value) => {
     setFields((prev) => {
@@ -137,9 +178,19 @@ function Admin({ user, onLogout, onBack }) {
     });
   };
 
+  const handleNewForm = () => {
+    setFormInfo(null);
+    setFields([]);
+    setFormName("");
+    setFormDescription("");
+    setEditingOptions(null);
+    setOptionInput("");
+    setPreviewOpen(false);
+  };
+
   const handleSave = async () => {
     setSaving(true);
-    setMessage("");
+    setToast({ show: false, text: "", type: "" });
 
     try {
       if (fields.length === 0) throw new Error("Add at least one field.");
@@ -167,9 +218,9 @@ function Admin({ user, onLogout, onBack }) {
         ...targetForm,
         versionNumber: targetForm.versionNumber + 1,
       });
-      setMessage("New schema version submitted for approval successfully.");
+      showToast("New schema version submitted for approval successfully.");
     } catch (error) {
-      setMessage(error.message);
+      showToast(error.message, "error");
     }
 
     setSaving(false);
@@ -178,7 +229,13 @@ function Admin({ user, onLogout, onBack }) {
   if (loading) {
     return (
       <div className="autofiller-page">
-        <Header user={user} onLogout={onLogout} onBack={onBack} />
+        <Header
+          user={user}
+          onLogout={onLogout}
+          onBack={onBack}
+          eyebrow="ADMIN CONSOLE"
+          title="Form Builder"
+        />
         <div className="admin-page">
           <div className="loading-state">Loading schema...</div>
         </div>
@@ -188,9 +245,21 @@ function Admin({ user, onLogout, onBack }) {
 
   return (
     <div className="autofiller-page">
-      <Header user={user} onLogout={onLogout} onBack={onBack} />
+      <Header
+        user={user}
+        onLogout={onLogout}
+        onBack={onBack}
+        eyebrow="ADMIN CONSOLE"
+        title="Form Builder"
+      />
 
       <div className="admin-page">
+        <AdminNav
+          active="forms"
+          onOpenUsers={onOpenUsers}
+          onOpenForms={onOpenForms}
+          onOpenRules={onOpenRules}
+        />
         <div className="admin-top">
           <div>
             <span className="eyebrow">ADMIN</span>
@@ -201,16 +270,25 @@ function Admin({ user, onLogout, onBack }) {
           </div>
 
           <div className="admin-actions">
-            {message && (
-              <span
-                className={`admin-message ${
-                  message.toLowerCase().includes("success")
-                    ? "success"
-                    : "error"
-                }`}
+            <label className="admin-form-select">
+              <span>Form</span>
+              <select
+                value={formInfo?.formId || "new"}
+                onChange={(e) => handleSelectForm(e.target.value)}
               >
-                {message}
-              </span>
+                {!formInfo && <option value="new">+ New Form ...</option>}
+                {forms.map((form) => (
+                  <option key={form.id} value={form.id}>
+                    {form.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            {formInfo && (
+              <Button variant="secondary" onClick={handleNewForm}>
+                + New Form
+              </Button>
             )}
 
             <Button onClick={addField}>+ Add Field</Button>
@@ -232,6 +310,12 @@ function Admin({ user, onLogout, onBack }) {
             </Button>
           </div>
         </div>
+
+        {toast.show && (
+          <div className={`toast-notification ${toast.type}`}>
+            {toast.text}
+          </div>
+        )}
 
         <div className="admin-fields">
           {!formInfo && (
@@ -349,6 +433,46 @@ function Admin({ user, onLogout, onBack }) {
                   />
                   Required
                 </label>
+
+                {field.type === "number" && (
+                  <div className="admin-field-group">
+                    <label>Min</label>
+                    <input
+                      type="number"
+                      value={field.min}
+                      onChange={(e) =>
+                        updateField(index, "min", e.target.value)
+                      }
+                      placeholder="No min"
+                    />
+                  </div>
+                )}
+
+                {field.type === "number" && (
+                  <div className="admin-field-group">
+                    <label>Max</label>
+                    <input
+                      type="number"
+                      value={field.max}
+                      onChange={(e) =>
+                        updateField(index, "max", e.target.value)
+                      }
+                      placeholder="No max"
+                    />
+                  </div>
+                )}
+              </div>
+
+              <div className="admin-field-full">
+                <label>Description / Constraints</label>
+                <textarea
+                  value={field.description}
+                  onChange={(e) =>
+                    updateField(index, "description", e.target.value)
+                  }
+                  placeholder="e.g. Must be 8-15 characters, at least one uppercase letter..."
+                  rows={2}
+                />
               </div>
 
               {field.type === "select" && (

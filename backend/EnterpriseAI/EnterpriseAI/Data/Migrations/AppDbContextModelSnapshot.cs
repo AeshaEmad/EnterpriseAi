@@ -264,6 +264,10 @@ namespace EnterpriseAI.Migrations
                     b.Property<string>("DefaultValue")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<int>("DisplayOrder")
                         .HasColumnType("int");
 
@@ -534,6 +538,38 @@ namespace EnterpriseAI.Migrations
                     b.ToTable("Users");
                 });
 
+            modelBuilder.Entity("EnterpriseAI.Models.UserFormAccess", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("FormId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<DateTime>("GrantedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("GrantedByUserId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FormId");
+
+                    b.HasIndex("GrantedByUserId");
+
+                    b.HasIndex("UserId", "FormId")
+                        .IsUnique();
+
+                    b.ToTable("UserFormAccesses");
+                });
+
             modelBuilder.Entity("EnterpriseAI.Models.UserProfileAttribute", b =>
                 {
                     b.Property<string>("Id")
@@ -760,6 +796,33 @@ namespace EnterpriseAI.Migrations
                     b.Navigation("SubmissionField");
                 });
 
+            modelBuilder.Entity("EnterpriseAI.Models.UserFormAccess", b =>
+                {
+                    b.HasOne("EnterpriseAI.Models.Form", "Form")
+                        .WithMany("UserAccesses")
+                        .HasForeignKey("FormId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("EnterpriseAI.Models.User", "GrantedByUser")
+                        .WithMany()
+                        .HasForeignKey("GrantedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("EnterpriseAI.Models.User", "User")
+                        .WithMany("FormAccesses")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Form");
+
+                    b.Navigation("GrantedByUser");
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("EnterpriseAI.Models.UserProfileAttribute", b =>
                 {
                     b.HasOne("EnterpriseAI.Models.User", "User")
@@ -785,6 +848,8 @@ namespace EnterpriseAI.Migrations
 
             modelBuilder.Entity("EnterpriseAI.Models.Form", b =>
                 {
+                    b.Navigation("UserAccesses");
+
                     b.Navigation("Versions");
                 });
 
@@ -831,6 +896,8 @@ namespace EnterpriseAI.Migrations
                     b.Navigation("ConfirmedSubmissionFields");
 
                     b.Navigation("FieldHistoryChanges");
+
+                    b.Navigation("FormAccesses");
 
                     b.Navigation("ProfileAttributes");
 

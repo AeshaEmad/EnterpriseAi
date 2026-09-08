@@ -10,5 +10,6 @@
         public DateTime UpdatedAt { get; set; }
 
         public ICollection<FormVersion> Versions { get; set; } = new List<FormVersion>();
+        public ICollection<UserFormAccess> UserAccesses { get; set; } = new List<UserFormAccess>();
     }
 }

@@ -8,8 +8,10 @@ function FormField({
   required = false,
   placeholder = "—",
   options = [],
+  description = "",
   status,
   confidence,
+  missing = false,
   onChange,
   name,
 }) {
@@ -42,7 +44,11 @@ function FormField({
   }
 
   return (
-    <div className={`form-field ${status || ""}`} data-field-name={name}>
+    <div
+      className={`form-field ${status || ""} ${missing ? "missing" : ""
+        }`}
+      data-field-name={name}
+    >
       <div className="field-label">
         <label>
           {label}
@@ -51,8 +57,16 @@ function FormField({
           )}
         </label>
 
+        {missing && (
+          <span className="field-missing-text">Required</span>
+        )}
+
         <FieldStatus status={status} confidence={confidence} />
       </div>
+
+      {description && (
+        <p className="field-description">{description}</p>
+      )}
 
       {isSelect ? (
         <select value={inputValue} onChange={handleChange} data-field-name={name}>

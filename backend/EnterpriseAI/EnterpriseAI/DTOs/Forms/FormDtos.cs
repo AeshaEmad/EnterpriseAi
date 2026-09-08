@@ -22,7 +22,8 @@ namespace EnterpriseAI.DTOs.Forms
         string Status,
         bool IsActive,
         DateTime CreatedAt,
-        DateTime? PublishedAt);
+        DateTime? PublishedAt,
+        IReadOnlyList<FormFieldDto>? Fields = null);
 
     public record FormFieldDto(
         string Id,
@@ -34,6 +35,7 @@ namespace EnterpriseAI.DTOs.Forms
         string? DefaultValue,
         JsonNode? Options,
         JsonNode? ValidationRules,
+        string Description,
         int DisplayOrder);
 
     public class CreateFormDto
@@ -66,7 +68,8 @@ namespace EnterpriseAI.DTOs.Forms
         bool Required,
         string? DefaultValue,
         JsonNode? Options,
-        JsonNode? Validation);
+        JsonNode? Validation,
+        string Description);
 
     public class CreateFormFieldDto
     {
@@ -86,6 +89,13 @@ namespace EnterpriseAI.DTOs.Forms
         public JsonNode? Options { get; set; }
 
         public JsonNode? ValidationRules { get; set; }
+
+        public decimal? Min { get; set; }
+
+        public decimal? Max { get; set; }
+
+        [Required(ErrorMessage = "Field description is required.")]
+        public string Description { get; set; } = string.Empty;
 
         public int DisplayOrder { get; set; }
     }

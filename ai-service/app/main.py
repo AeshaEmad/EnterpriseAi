@@ -8,6 +8,7 @@ from starlette.status import HTTP_503_SERVICE_UNAVAILABLE
 
 from app.extraction.extractor import Extractor
 from app.llm.ollama_client import OllamaClient
+
 from app.models.extraction import (
     ExtractionRequest,
     ExtractionResponse,
@@ -26,6 +27,7 @@ logging.basicConfig(
 
 
 def load_system_prompt() -> str:
+
     prompt_path = (
         Path(__file__).resolve().parent.parent
         / "prompts"
@@ -33,9 +35,15 @@ def load_system_prompt() -> str:
     )
     return prompt_path.read_text(encoding="utf-8")
 
+def create_rag_service() -> RAGService:
+
+    # -----------------------------
+    # Extraction Model
+    # -----------------------------
 
 def create_rag_service() -> RAGService:
     ollama_client = OllamaClient()
+
     system_prompt = load_system_prompt()
     extractor = Extractor(
         ollama_client=ollama_client,
@@ -50,6 +58,15 @@ def create_rag_service() -> RAGService:
         extractor=extractor,
     )
 
+    # -----------------------------
+    # RAG Router
+    # -----------------------------
+
+    router_client = RouterClient()
+
+    rag_router = RAGRouter(
+        router_client=router_client,
+    )
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):

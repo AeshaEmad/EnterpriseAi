@@ -16,5 +16,7 @@
         public ICollection<SubmissionField> ConfirmedSubmissionFields { get; set; } = new List<SubmissionField>();
         public ICollection<SubmissionFieldHistory> FieldHistoryChanges { get; set; } = new List<SubmissionFieldHistory>();
         public ICollection<Confirmation> Confirmations { get; set; } = new List<Confirmation>();
+        public ICollection<UserFormAccess> FormAccesses { get; set; } = new List<UserFormAccess>();
+
     }
 }

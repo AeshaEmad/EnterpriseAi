@@ -32,7 +32,8 @@ namespace EnterpriseAI.Mappings
                 version.Status,
                 version.IsActive,
                 version.CreatedAt,
-                version.PublishedAt);
+                version.PublishedAt,
+                version.Fields?.OrderBy(f => f.DisplayOrder).Select(f => f.ToDto()).ToList());
         }
 
         public static FormFieldDto ToDto(this FormField field)
@@ -47,6 +48,7 @@ namespace EnterpriseAI.Mappings
                 field.DefaultValue,
                 field.Options,
                 field.ValidationRules,
+                field.Description,
                 field.DisplayOrder);
         }
 
@@ -69,7 +71,8 @@ namespace EnterpriseAI.Mappings
                 field.IsRequired,
                 field.DefaultValue,
                 field.Options,
-                field.ValidationRules);
+                field.ValidationRules,
+                field.Description);
         }
 
         public static Form ToEntity(this CreateFormDto dto)
@@ -79,7 +82,7 @@ namespace EnterpriseAI.Mappings
                 Id = Guid.NewGuid().ToString(),
                 Name = dto.Name,
                 Description = dto.Description,
-                IsActive = true,
+                IsActive = false,
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow
             };
@@ -102,6 +105,18 @@ namespace EnterpriseAI.Mappings
 
         public static FormField ToEntity(this CreateFormFieldDto dto, string formVersionId)
         {
+            var rulesObj = dto.ValidationRules as JsonObject ?? new JsonObject();
+            if (dto.Min.HasValue && !rulesObj.ContainsKey("min"))
+            {
+                rulesObj["min"] = dto.Min.Value;
+            }
+            if (dto.Max.HasValue && !rulesObj.ContainsKey("max"))
+            {
+                rulesObj["max"] = dto.Max.Value;
+            }
+
+            JsonNode? finalValidationRules = rulesObj.Count > 0 ? rulesObj : dto.ValidationRules;
+
             return new FormField
             {
                 Id = Guid.NewGuid().ToString(),
@@ -112,7 +127,8 @@ namespace EnterpriseAI.Mappings
                 IsRequired = dto.IsRequired,
                 DefaultValue = dto.DefaultValue,
                 Options = dto.Options,
-                ValidationRules = dto.ValidationRules,
+                ValidationRules = finalValidationRules,
+                Description = dto.Description,
                 DisplayOrder = dto.DisplayOrder,
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow
