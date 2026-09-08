@@ -45,6 +45,8 @@ class OllamaClient:
             ],
             "options": {
                 "temperature": 0,
+                "top_p": 0.1,
+                "stop": ["<|im_end|>", "</think>"]
             },
             "format": "json",
             "think": False,
