@@ -3,10 +3,12 @@ import Header from "../components/layout/Header";
 import Button from "../components/common/Button";
 import AdminNav from "../components/admin/AdminNav";
 import { getForms } from "../services/formSchema";
+import { uploadBusinessRulePdf } from "../services/businessRules";
 
 function BusinessRules({ user, onLogout, onBack, onOpenUsers, onOpenForms, onOpenRules }) {
   const [forms, setForms] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [uploading, setUploading] = useState(false);
   const [selectedFormId, setSelectedFormId] = useState("");
   const [pdf, setPdf] = useState(null);
   const [rules, setRules] = useState([]);
@@ -46,7 +48,7 @@ function BusinessRules({ user, onLogout, onBack, onOpenUsers, onOpenForms, onOpe
     };
   }, []);
 
-  const handleUpload = () => {
+  const handleUpload = async () => {
     if (!pdf) {
       showToast("Choose a PDF file first.", "error");
       return;
@@ -56,17 +58,28 @@ function BusinessRules({ user, onLogout, onBack, onOpenUsers, onOpenForms, onOpe
       return;
     }
 
-    const entry = {
-      id: `rule-${Date.now()}`,
-      formId: selectedFormId,
-      formName: forms.find((f) => f.id === selectedFormId)?.name || "Unknown form",
-      fileName: pdf.name,
-      uploadedAt: new Date().toISOString(),
-    };
+    const selectedForm = forms.find((f) => f.id === selectedFormId);
+    const formName = selectedForm?.name || "Unknown form";
 
-    setRules((prev) => [entry, ...prev]);
-    setPdf(null);
-    showToast(`Uploaded "${pdf.name}" for ${entry.formName}.`);
+    setUploading(true);
+    try {
+      const res = await uploadBusinessRulePdf(selectedFormId, formName, pdf);
+      const entry = {
+        id: `rule-${Date.now()}`,
+        formId: selectedFormId,
+        formName: formName,
+        fileName: pdf.name,
+        uploadedAt: res.uploadedAt || new Date().toISOString(),
+      };
+
+      setRules((prev) => [entry, ...prev]);
+      setPdf(null);
+      showToast(`Uploaded and extracted business rules from "${pdf.name}" for ${formName}.`);
+    } catch (err) {
+      showToast(err.message || "Failed to upload business rules PDF.", "error");
+    } finally {
+      setUploading(false);
+    }
   };
 
   if (loading) {
@@ -150,8 +163,8 @@ function BusinessRules({ user, onLogout, onBack, onOpenUsers, onOpenForms, onOpe
               />
             </label>
 
-            <Button onClick={handleUpload} disabled={!pdf || !selectedFormId}>
-              Upload
+            <Button onClick={handleUpload} disabled={uploading || !pdf || !selectedFormId}>
+              {uploading ? "Uploading..." : "Upload"}
             </Button>
           </div>
         </div>

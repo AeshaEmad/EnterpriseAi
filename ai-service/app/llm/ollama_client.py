@@ -15,7 +15,7 @@ class OllamaClient:
 
         self.model = os.getenv(
             "OLLAMA_MODEL",
-            "qwen3.5:latest"
+            "qwen3:0.6b"
         )
 
         self.timeout_seconds = float(

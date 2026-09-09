@@ -39,6 +39,11 @@ class Extractor:
 
         parsed_response = self._parse_response(raw_response)
         parsed_response["modelName"] = self.ollama_client.model
+        if "missingFields" not in parsed_response or not isinstance(parsed_response.get("missingFields"), list):
+            parsed_response["missingFields"] = []
+        if "clarifications" not in parsed_response or not isinstance(parsed_response.get("clarifications"), list):
+            parsed_response["clarifications"] = []
+
         values = parsed_response.get("values", {})
         parsed_response["values"] = {
             field: {

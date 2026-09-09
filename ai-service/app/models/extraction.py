@@ -19,10 +19,10 @@ class Clarification(BaseModel):
 
 
 class ExtractionResponse(BaseModel):
-    values: dict[str, ExtractedValue]
-    missingFields: list[str]
-    clarifications: list[Clarification]
-    modelName: str
+    values: dict[str, ExtractedValue] = Field(default_factory=dict)
+    missingFields: list[str] = Field(default_factory=list)
+    clarifications: list[Clarification] = Field(default_factory=list)
+    modelName: str = ""
 
 class FormField(BaseModel):
     name: str

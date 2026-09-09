@@ -1,0 +1,16 @@
+Employee Onboarding 
+ 
+1. AGE RESTRICTION RULE 
+- All applicants must be at least 18 years old. 
+- Maximum age allowed for onboarding is 65 years. 
+ 
+2. SALARY AND COMPENSATION CONSTRAINTS 
+- Minimum allowed basic salary: $3,000. 
+- Maximum allowed basic salary: $25,000. 
+- Any salary above $15,000 requires VP approval. 
+ 
+3. PROBATION PERIOD RULE 
+- Probation period must be a number of months between 1 and 6 months. 
+ 
+4. WORKING HOURS 
+- Standard weekly working hours must not exceed 40 hours per week.

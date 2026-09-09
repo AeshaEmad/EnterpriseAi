@@ -1,7 +1,9 @@
+import io
 from pathlib import Path
 
 import uvicorn
-from fastapi import FastAPI
+from fastapi import FastAPI, File, Form, UploadFile, HTTPException
+from pypdf import PdfReader
 
 from app.extraction.extractor import Extractor
 from app.llm.ollama_client import OllamaClient
@@ -94,6 +96,45 @@ def extract(request: ExtractionRequest):
     )
 
     return result
+
+
+@app.post("/api/v1/rules/upload-pdf")
+async def upload_rules_pdf(
+    form_name: str = Form(...),
+    file: UploadFile = File(...),
+):
+    if not file.filename.lower().endswith(".pdf"):
+        raise HTTPException(status_code=400, detail="File must be a PDF")
+
+    contents = await file.read()
+    pdf_file = io.BytesIO(contents)
+
+    try:
+        reader = PdfReader(pdf_file)
+        text_pages = []
+        for page in reader.pages:
+            page_text = page.extract_text()
+            if page_text:
+                text_pages.append(page_text)
+        extracted_text = "\n\n".join(text_pages).strip()
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Failed to extract PDF text: {str(e)}")
+
+    docs_dir = Path(__file__).resolve().parents[1] / "knowledge" / "documents"
+    docs_dir.mkdir(parents=True, exist_ok=True)
+
+    clean_form_name = form_name.strip()
+    target_path = docs_dir / f"{clean_form_name}.txt"
+
+    target_path.write_text(extracted_text, encoding="utf-8")
+
+    return {
+        "status": "success",
+        "fileName": target_path.name,
+        "formName": clean_form_name,
+        "characterCount": len(extracted_text),
+        "pageCount": len(reader.pages),
+    }
 
 
 if __name__ == "__main__":
