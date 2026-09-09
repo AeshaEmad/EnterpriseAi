@@ -1,7 +1,9 @@
+import logging
+
 from app.rag.config import RAGConfig
-from app.rag.vector_store import (
-    create_vector_store,
-)
+from app.rag.vector_store import create_vector_store
+
+logger = logging.getLogger("ai_service.rag.retriever")
 
 
 class BusinessKnowledgeRetriever:
@@ -13,7 +15,7 @@ class BusinessKnowledgeRetriever:
                 search_kwargs={"k": RAGConfig.TOP_K}
             )
         except Exception as e:
-            print(f"Warning: Qdrant vector store initialization failed ({e}). RAG retrieval is disabled.")
+            logger.warning("Qdrant vector store initialization failed (%s). RAG retrieval is disabled.", e)
             self.vector_store = None
             self.retriever = None
 
@@ -21,9 +23,11 @@ class BusinessKnowledgeRetriever:
         if not self.retriever:
             return []
         try:
-            return self.retriever.invoke(query)
+            logger.info("Retrieving up to %s business knowledge documents", RAGConfig.TOP_K)
+            documents = self.retriever.invoke(query)
+            logger.info("Retrieved %s business knowledge documents", len(documents))
+            return documents
         except Exception as e:
-            print(f"Warning: Qdrant retrieval failed ({e}). Returning empty results.")
+            logger.warning("Qdrant retrieval failed (%s). Returning empty results.", e)
             return []
-
 

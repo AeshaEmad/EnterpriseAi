@@ -1,0 +1,77 @@
+services:
+  # 1. Ollama LLM Service
+  ollama:
+    build:
+      context: ./ollama
+      dockerfile: Dockerfile
+    image: enterprise-ollama:qwen2.5-coder
+    container_name: enterprise-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    restart: unless-stopped
+    networks:
+      - enterprise-network
+
+  # 2. FastAPI AI Service
+  ai-service:
+    build:
+      context: ./ai-service
+      dockerfile: Dockerfile
+    container_name: enterprise-ai-service
+    ports:
+      - "8000:8000"
+    environment:
+      - OLLAMA_BASE_URL=http://ollama:11434
+      - OLLAMA_MODEL=qwen2.5-coder:7b-instruct-q3_K_M
+      - RAG_ROUTER_MODEL=qwen2.5-coder:7b-instruct-q3_K_M
+      - OLLAMA_TIMEOUT_SECONDS=180
+    depends_on:
+      - ollama
+    restart: unless-stopped
+    networks:
+      - enterprise-network
+
+  # 3. ASP.NET Core Backend Web API
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: enterprise-backend
+    ports:
+      - "5000:5000"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:5000
+      - AiService__BaseUrl=http://ai-service:8000
+      - AiService__ExtractEndpoint=/api/v1/extract
+      - AiService__Model=qwen2.5-coder:7b-instruct-q3_K_M
+      - AiService__TimeoutSeconds=180
+      - ConnectionStrings__DefaultConnection=Server=db65052.public.databaseasp.net; Database=db65052; User Id=db65052; Password=8Bt_s=J7?5rF; Encrypt=True; TrustServerCertificate=True; MultipleActiveResultSets=True;
+    depends_on:
+      - ai-service
+    restart: unless-stopped
+    networks:
+      - enterprise-network
+
+  # 4. React Frontend (Nginx)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: enterprise-frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+    networks:
+      - enterprise-network
+
+networks:
+  enterprise-network:
+    driver: bridge
+
+volumes:
+  ollama_data:
