@@ -1,0 +1,25 @@
+BUSINESS RULES & LOGIC SPECIFICATION 
+Form Name: Opening a Bank Account 
+ 
+1. ACCOUNT TYPE & EMPLOYMENT ELIGIBILITY LOGIC 
+- If Employment Status is selected as "Student" or "Unemployed", the Account Type cannot be 
+"Premium Checking" or "Corporate Business Account". It must be set to either "Basic Savings" or 
+"Student Checking". 
+- If Account Type is selected as "Premium Checking" and Primary Monthly Income is less than 
+$2,500, a valid Co-Signer Name and Co-Signer ID Number must be provided. 
+ 
+2. TAX RESIDENCY & FATCA COMPLIANCE LOGIC 
+- If Tax Residency Outside Domestic Country is checked as "Yes", both Foreign Tax Identification 
+Number (TIN) and Country of Tax Residency become strictly required fields. 
+- If Country of Tax Residency is "United States", a completed US W-9 Form Declaration is required. 
+ 
+3. AGE & GUARDIAN DEPENDENCY LOGIC 
+- If the applicant's Date of Birth indicates an age under 18 years old: 
+  * Legal Guardian Name and Guardian National ID Number are mandatory. 
+  * The Account Type must default to "Joint Youth Account". 
+ 
+4. INITIAL FUNDING & SOURCE OF WEALTH LOGIC 
+- If Initial Deposit Method is selected as "International Wire Transfer", the Originating Country and 
+Source of Funds Description must be specified. 
+- If Account Currency is set to "Foreign Currency (USD/EUR)" and Residence Status is "Non-
+Resident", an International Passport Number must be provided instead of a local National ID.

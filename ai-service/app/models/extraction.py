@@ -15,14 +15,15 @@ class ExtractedValue(BaseModel):
 class Clarification(BaseModel):
     field: str
     question: str
-    suggestions: list[str] = []
+    suggestions: list[str] = Field(default_factory=list)
 
 
 class ExtractionResponse(BaseModel):
-    values: dict[str, ExtractedValue]
-    missingFields: list[str]
-    clarifications: list[Clarification]
-    modelName: str
+    values: dict[str, ExtractedValue] = Field(default_factory=dict)
+    missingFields: list[str] = Field(default_factory=list)
+    clarifications: list[Clarification] = Field(default_factory=list)
+    modelName: str = ""
+
 
 class FormField(BaseModel):
     name: str
@@ -44,11 +45,11 @@ class FormSchema(BaseModel):
 
 
 class ExtractionContext(BaseModel):
-    existingValues: dict[str, Any] = {}
-    conversation: list[dict[str, Any]] = []
+    existingValues: dict[str, Any] = Field(default_factory=dict)
+    conversation: list[dict[str, Any]] = Field(default_factory=list)
 
 
 class ExtractionRequest(BaseModel):
     form_schema: FormSchema
     user_input: str
-    context: ExtractionContext    
+    context: ExtractionContext

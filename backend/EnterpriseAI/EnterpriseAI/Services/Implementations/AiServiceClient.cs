@@ -224,5 +224,35 @@ namespace EnterpriseAI.Services.Implementations
                 throw new InvalidOperationException("AI service is unreachable. Please ensure the AI service is running.");
             }
         }
+
+        public async Task<bool> UploadBusinessRulePdfAsync(string formName, Stream stream, string fileName, CancellationToken cancellationToken = default)
+        {
+            var url = $"{_settings.BaseUrl.TrimEnd('/')}/api/v1/rules/upload-pdf";
+
+            using var content = new MultipartFormDataContent();
+            content.Add(new StringContent(formName), "form_name");
+
+            var streamContent = new StreamContent(stream);
+            streamContent.Headers.ContentType = new MediaTypeHeaderValue("application/pdf");
+            content.Add(streamContent, "file", fileName);
+
+            try
+            {
+                using var response = await _httpClient.PostAsync(url, content, cancellationToken);
+                if (response.IsSuccessStatusCode)
+                {
+                    return true;
+                }
+
+                var error = await response.Content.ReadAsStringAsync(cancellationToken);
+                _logger.LogError("Failed to upload PDF to AI service ({StatusCode}): {Error}", response.StatusCode, error);
+                return false;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error uploading PDF to AI service at {Url}", url);
+                return false;
+            }
+        }
     }
 }

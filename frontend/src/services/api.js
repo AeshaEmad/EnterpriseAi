@@ -20,7 +20,7 @@ export async function request(endpoint, options = {}) {
   const url = `${BASE_URL}${endpoint}`;
 
   const headers = {
-    "Content-Type": "application/json",
+    ...(options.body instanceof FormData ? {} : { "Content-Type": "application/json" }),
     ...options.headers,
   };
 
