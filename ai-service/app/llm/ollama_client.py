@@ -23,7 +23,11 @@ class OllamaClient:
         )
 
         self.timeout_seconds = float(
-            os.getenv("OLLAMA_TIMEOUT_SECONDS", "180")
+            os.getenv("OLLAMA_TIMEOUT_SECONDS", "300")  
+        )
+
+        self.num_ctx = int(
+            os.getenv("OLLAMA_NUM_CTX", "8192")  
         )
 
     def generate(
@@ -45,11 +49,11 @@ class OllamaClient:
             ],
             "options": {
                 "temperature": 0,
-                "top_p": 0.1,
+                "top_p": 0.1, 
+                "num_ctx": self.num_ctx, 
                 "stop": ["<|im_end|>", "</think>"]
             },
             "format": "json",
-            "think": False,
             "stream": False,
         }
 

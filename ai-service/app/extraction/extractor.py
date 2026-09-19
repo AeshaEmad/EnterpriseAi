@@ -49,7 +49,7 @@ class Extractor:
                 parsed_response["values"] = {
                     field: {
                         "value": value.get("value"),
-                        "confidence": value.get("confidence") or 0.5,
+                        "confidence": value.get("confidence") ,
                     }
                     if isinstance(value, dict) and "value" in value
                     else {"value": value, "confidence": 0.5}
