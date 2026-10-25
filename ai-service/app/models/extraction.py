@@ -46,7 +46,7 @@ class FormSchema(BaseModel):
 
 class ExtractionContext(BaseModel):
     existingValues: dict[str, Any] = Field(default_factory=dict)
-    conversation: list[dict[str, Any]] = Field(default_factory=list)
+    
 
 
 class ExtractionRequest(BaseModel):
