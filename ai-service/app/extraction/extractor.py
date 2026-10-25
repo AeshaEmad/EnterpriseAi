@@ -52,7 +52,7 @@ class Extractor:
                         "confidence": value.get("confidence") ,
                     }
                     if isinstance(value, dict) and "value" in value
-                    else {"value": value, "confidence": 0.5}
+                    else {"value": value, "confidence": 0.1}
                     for field, value in values.items()
                     if value is not None
                 }
