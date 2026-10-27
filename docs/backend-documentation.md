@@ -1,6 +1,6 @@
 # Enterprise AI Backend — Full Documentation
 
-Last updated: 2026-08-17
+Last updated: 2026-10-27
 
 ---
 
@@ -11,8 +11,9 @@ Enterprise AI Auto-Filler: a .NET Core 10 Web API backend for an AI-driven form 
 ### Tech Stack
 - ASP.NET Core 10 (Web API)
 - Entity Framework Core (SQL Server)
-- JWT Authentication
+- JWT Authentication (Bearer tokens)
 - Generic Repository Pattern
+- Scalar API Reference (dev UI)
 
 ---
 
@@ -20,9 +21,9 @@ Enterprise AI Auto-Filler: a .NET Core 10 Web API backend for an AI-driven form 
 
 | Role | Permissions |
 |---|---|
-| `Admin` | CRUD forms, versions, fields; submit versions for approval |
+| `Admin` | CRUD forms, versions, fields; submit versions for approval; manage user access; upload PDF rules |
 | `Manager` | Approve/reject form versions |
-| `User` | View forms, create/update/validate/confirm submissions |
+| `User` | View accessible forms, create/update/validate/confirm submissions |
 
 ### Default Users (seeded on startup)
 
@@ -31,6 +32,8 @@ Enterprise AI Auto-Filler: a .NET Core 10 Web API backend for an AI-driven form 
 | Admin | admin@enterpriseai.dev | Admin@123 |
 | Manager | manager@enterpriseai.dev | Manager@123 |
 
+> Credentials are configurable via `appsettings.json` under `Admin` and `Manager` sections.
+
 ---
 
 ## 3. Form Approval Workflow
@@ -38,9 +41,9 @@ Enterprise AI Auto-Filler: a .NET Core 10 Web API backend for an AI-driven form 
 Versions go through a status lifecycle before becoming active:
 
 ```
-Draft → PendingApproval → Published (active)
-                    ↓
-                Rejected → Draft (resubmit)
+Draft -> PendingApproval -> Published (active)
+                    |
+                Rejected -> Draft (resubmit)
 ```
 
 - **Draft**: Admin can modify fields freely.
@@ -53,7 +56,7 @@ Draft → PendingApproval → Published (active)
 ```
 POST /api/forms/{id}/versions/{versionId}/submit-for-approval   [Admin]
 POST /api/forms/{id}/versions/{versionId}/approve               [Manager]
-POST /api/forms/{id}/versions/{versionId}/reject                [Manager]
+POST /api/forms/{id}/versions/{versionId}/reject                [Manager]  Body: { "notes": "..." }
 POST /api/forms/{id}/versions/{versionId}/resubmit              [Admin]
 ```
 
@@ -66,32 +69,58 @@ All endpoints require `Authorization: Bearer <token>` unless noted.
 ### 4.1 Auth
 
 ```
-POST   /api/auth/login              { email, password } → { token, expiresAt, user }
+POST   /api/auth/login              { email, password } -> { token, expiresAt, user }
 ```
 
-### 4.2 Forms
+### 4.2 Users (Admin only)
 
 ```
-GET    /api/forms                                             → FormDto[]
-GET    /api/forms/{id}                                        → FormDetailDto
-GET    /api/forms/{id}/schema                                 → FormSchemaDto (feeds AI /extract)
-POST   /api/forms                                  [Admin]    → FormDto
-POST   /api/forms/{id}/versions                    [Admin]    → FormVersionDto
-POST   /api/forms/{id}/versions/{vid}/fields       [Admin]    → FormFieldDto
-POST   /api/forms/{id}/versions/{vid}/submit-for-approval [Admin]  → FormVersionDto
-POST   /api/forms/{id}/versions/{vid}/approve       [Manager] → FormVersionDto
-POST   /api/forms/{id}/versions/{vid}/reject        [Manager] → FormVersionDto
-POST   /api/forms/{id}/versions/{vid}/resubmit      [Admin]   → FormVersionDto
+GET    /api/users                   -> UserDto[]
+GET    /api/users/{id}              -> UserDto
+POST   /api/users                   -> UserDto    Body: CreateUserDto
 ```
 
-### 4.3 Business Rules (Admin)
+### 4.3 Forms
 
 ```
-GET    /api/business-rules?formId={id}                       → BusinessRuleDto[]
-POST   /api/business-rules                                   → BusinessRuleDto
-PUT    /api/business-rules/{id}                              → BusinessRuleDto
-DELETE /api/business-rules/{id}                              → 204
+GET    /api/forms                                              -> FormDto[]        (filtered by role/access)
+GET    /api/forms/{id}                                         -> FormDetailDto
+GET    /api/forms/{id}/schema                                  -> FormSchemaDto    (feeds AI /extract)
+POST   /api/forms                               [Admin]        -> FormDto
+POST   /api/forms/{id}/versions                 [Admin]        -> FormVersionDto
+POST   /api/forms/{id}/versions/{vid}/fields    [Admin]        -> FormFieldDto
+POST   /api/forms/{id}/versions/{vid}/submit-for-approval [Admin] -> FormVersionDto
+POST   /api/forms/{id}/versions/{vid}/approve   [Manager]      -> FormVersionDto
+POST   /api/forms/{id}/versions/{vid}/reject    [Manager]      -> FormVersionDto
+POST   /api/forms/{id}/versions/{vid}/resubmit  [Admin]        -> FormVersionDto
 ```
+
+> **Access Filtering**: `GET /api/forms` and `GET /api/forms/{id}` return results based on user role:
+> - Admin/Manager: all forms.
+> - Regular User: only forms they have been granted access to via `UserFormAccess`.
+
+### 4.4 Form Access Management (Admin only)
+
+```
+GET    /api/users/{userId}/forms                -> UserFormAccessDto[]
+POST   /api/users/{userId}/forms                -> UserFormAccessDto    Body: { "formId": "..." }
+DELETE /api/users/{userId}/forms                -> 204 No Content       Body: { "formId": "..." }
+```
+
+### 4.5 Business Rules (Admin only for write operations)
+
+```
+GET    /api/business-rules?formId={id}                          -> BusinessRuleDto[]
+POST   /api/business-rules                      [Admin]         -> BusinessRuleDto
+PUT    /api/business-rules/{id}                 [Admin]         -> BusinessRuleDto
+DELETE /api/business-rules/{id}                 [Admin]         -> 204
+POST   /api/business-rules/upload-pdf           [Admin]         -> { message, fileName, formName, uploadedAt }
+```
+
+**`upload-pdf` Request**: `multipart/form-data` with fields:
+- `file` - PDF file containing business rules
+- `formId` - target form ID
+- `formName` - target form name (used by AI service for indexing)
 
 **RuleDefinition JSON shapes:**
 - `field_value`: `{ "field": "requestedLoan", "operator": "<=", "value": 300000, "message": "..." }`
@@ -100,21 +129,62 @@ DELETE /api/business-rules/{id}                              → 204
 
 Supported operators: `==`, `!=`, `>`, `>=`, `<`, `<=`, `contains`, `not_contains`, `is_required`
 
-### 4.4 Submissions
+### 4.6 Submissions
 
 ```
-POST   /api/submissions                                      → SubmissionDto
-GET    /api/submissions/{id}                                 → SubmissionDto
-PUT    /api/submissions/{id}/fields                          → SubmissionDto
-POST   /api/submissions/{id}/validate                        → ValidationResultDto
-POST   /api/submissions/{id}/confirm                         → SubmissionDto
+POST   /api/submissions                                         -> SubmissionDto    Body: CreateSubmissionDto
+GET    /api/submissions/{id}                                    -> SubmissionDto
+PUT    /api/submissions/{id}/fields                             -> SubmissionDto    Body: UpdateSubmissionFieldsDto
+POST   /api/submissions/{id}/extract                            -> ExtractResultDto  Body: { "userInput": "..." }
+POST   /api/submissions/{id}/validate                           -> ValidationResultDto
+POST   /api/submissions/{id}/confirm                            -> SubmissionDto
 ```
 
 ---
 
-## 5. Business Rule Engine
+## 5. AI Integration
 
-`BusinessRuleEngine.cs` — the core of Module C.
+### 5.1 AiServiceClient
+
+`AiServiceClient.cs` - bridges the backend to AI capabilities. Supports two modes selected automatically at runtime:
+
+| Mode | Condition | Target |
+|---|---|---|
+| **Cloud LLM** | `AiService:ApiKey` is set | Groq API (or compatible OpenAI endpoint) at `/chat/completions` |
+| **Microservice** | No API key configured | Local Python AI service at `AiService:BaseUrl` |
+
+### 5.2 Extract Flow
+
+`POST /api/submissions/{id}/extract` -> `SubmissionService.ExtractAsync()` -> `AiServiceClient.ExtractAsync()`:
+
+1. Backend builds an `AiExtractRequest` with the form schema and user free-text input.
+2. AI returns extracted field values, missing fields, and clarification questions.
+3. `SubmissionService` applies extracted values to `SubmissionFields`, records an `AIAnalysis`, and transitions the submission to `AI_Filled`.
+
+### 5.3 PDF Business Rules Upload
+
+`POST /api/business-rules/upload-pdf` -> `AiServiceClient.UploadBusinessRulePdfAsync()`:
+
+- Forwards the PDF to the AI service at `/api/v1/rules/upload-pdf` via `multipart/form-data`.
+- The AI service indexes the PDF for context-aware rule suggestions.
+
+### 5.4 AI Service Configuration (`appsettings.json`)
+
+```json
+"AiService": {
+  "BaseUrl": "http://127.0.0.1:8001",
+  "ExtractEndpoint": "/api/v1/extract",
+  "ApiKey": "",
+  "Model": "qwen2.5-coder:7b-instruct-q3_K_M",
+  "TimeoutSeconds": 180
+}
+```
+
+---
+
+## 6. Business Rule Engine
+
+`BusinessRuleEngine.cs` - the core of Module C.
 
 Executes rules against a submission's field values:
 - **field_value**: Compares a field against a literal value.
@@ -125,7 +195,7 @@ Each rule execution produces a `RuleExecutionResult` with status `Passed`, `Fail
 
 ---
 
-## 6. Field-Level Validation
+## 7. Field-Level Validation
 
 `SubmissionService.ValidateFields()` runs before rule execution:
 - Checks `IsRequired` fields have a value.
@@ -133,47 +203,77 @@ Each rule execution produces a `RuleExecutionResult` with status `Passed`, `Fail
 
 ---
 
-## 7. Submission Lifecycle
+## 8. Submission Lifecycle
 
 ```
-Draft → AI_Filled → User_Edited → NeedsCorrection → Validated → Confirmed
+Draft -> AI_Filled -> User_Edited -> NeedsCorrection -> Validated -> Confirmed
 ```
 
-- **Draft**: Just created; no values yet.
-- **AI_Filled**: Fields populated by AI (`source = "ai"`).
-- **User_Edited**: User manually edited at least one field.
-- **NeedsCorrection**: Validation or business rules failed.
-- **Validated**: Passed all checks; ready for confirmation.
-- **Confirmed**: Final submission stored in history.
+| Status | Description |
+|---|---|
+| `Draft` | Just created; no values yet. |
+| `AI_Filled` | Fields populated by AI via `/extract`. |
+| `User_Edited` | User manually edited at least one field. |
+| `NeedsCorrection` | Validation or business rules failed. |
+| `Validated` | Passed all checks; ready for confirmation. |
+| `Confirmed` | Final submission stored in history. |
+
+**State machine**: Invalid transitions throw `InvalidOperationException` (mapped to 409 Conflict).
 
 ---
 
-## 8. Code Structure
+## 9. User Form Access (Access Control)
+
+`UserFormAccess` entity controls which regular users can view and submit forms.
+
+- Only **Admin** can grant/revoke access.
+- Admins and Managers always see all forms.
+- Regular users only see forms in their `UserFormAccess` list.
+- Duplicate grants throw `InvalidOperationException` (409).
+
+---
+
+## 10. Code Structure
 
 ```
 EnterpriseAI/
-├── Controllers/          → HTTP layer (Auth, Users, Forms, BusinessRules, Submissions)
-├── DTOs/                 → Request/response objects (Auth, Users, Forms, BusinessRules, Submissions)
+├── Controllers/          -> HTTP layer
+│   ├── AuthController.cs
+│   ├── UsersController.cs          (Admin: CRUD users)
+│   ├── FormsController.cs          (Forms + versions + approval workflow)
+│   ├── FormAccessController.cs     (Admin: grant/revoke user->form access)
+│   ├── BusinessRulesController.cs  (Rules CRUD + PDF upload)
+│   └── SubmissionsController.cs    (Submissions + AI extract)
+├── DTOs/                 -> Request/response objects
+│   ├── Auth/
+│   ├── Users/
+│   ├── Forms/
+│   ├── FormAccess/
+│   ├── BusinessRules/
+│   ├── Submissions/
+│   └── Common/
 ├── Data/
-│   ├── AppDbContext.cs   → EF Core context + all DbSets + relationships
-│   └── DbInitializer.cs  → Seeds Admin + Manager users
+│   ├── AppDbContext.cs   -> EF Core context + all DbSets + relationships
+│   └── DbInitializer.cs  -> Seeds Admin + Manager users + demo form
 ├── Extensions/
-│   └── ServiceCollectionExtensions.cs  → DI registration + JWT config
-├── Mappings/             → Entity ↔ DTO mapping (User, Form, BusinessRule, Submission)
+│   └── ServiceCollectionExtensions.cs  -> DI registration + JWT + AI client config
+├── Mappings/             -> Entity <-> DTO mapping
 ├── Middleware/
-│   └── ExceptionHandlingMiddleware.cs  → Global error handling
-├── Models/               → 14 EF Core entities
+│   └── ExceptionHandlingMiddleware.cs  -> Global error handling
+├── Models/               -> 15 EF Core entities
 ├── Repositories/
-│   ├── Interfaces/       → IReadRepository<T>, IWriteRepository<T>, IRepository<T>
-│   └── Repository.cs     → Generic implementation
+│   ├── Interfaces/       -> IReadRepository<T>, IWriteRepository<T>, IRepository<T>
+│   └── Repository.cs     -> Generic implementation
 ├── Services/
-│   ├── Interfaces/       → IAuthService, IUserService, IFormService, IBusinessRuleService,
-│   │                         ISubmissionService, IBusinessRuleEngine
-│   └── Implementations/  → AuthService, UserService, FormService, BusinessRuleService,
-│                             SubmissionService, BusinessRuleEngine
+│   ├── Interfaces/       -> IAuthService, IUserService, IFormService, IFormAccessService,
+│   │                         IBusinessRuleService, ISubmissionService,
+│   │                         IBusinessRuleEngine, IAiServiceClient
+│   └── Implementations/  -> AuthService, UserService, FormService, FormAccessService,
+│                             BusinessRuleService, SubmissionService,
+│                             BusinessRuleEngine, AiServiceClient, AiPrompts
 ├── Settings/
-│   └── JwtSettings.cs    → JWT configuration model
-└── Program.cs            → App setup + middleware pipeline
+│   └── JwtSettings.cs    -> JWT configuration model
+└── Program.cs            -> App setup + middleware pipeline
 ```
 
 ### Key Architectural Decisions
@@ -182,32 +282,37 @@ EnterpriseAI/
 |---|---|
 | Generic Repository | Decouples services from EF Core; supports testing |
 | ExceptionHandlingMiddleware | Global error-to-HTTP mapping without try/catch in controllers |
-| JSON conversion in DB | `JsonNode` ↔ `string` via EF Core value converter; enables flexible rule/field schemas |
+| JSON conversion in DB | `JsonNode` <-> `string` via EF Core value converter; enables flexible rule/field schemas |
 | Business Rule Engine as separate service | Single responsibility; isolated for testing |
 | Form approval workflow | Prevents accidental changes to live forms; audit trail via status transitions |
+| Dual AI mode (Cloud LLM / Microservice) | Flexible deployment; use cloud key for production, local Ollama for dev |
+| UserFormAccess table | Row-level form access control for regular users without complex permission frameworks |
 
 ---
 
-## 9. Database Tables (14)
+## 11. Database Tables (15)
 
-1. Users
-2. UserProfileAttributes (client records)
-3. Forms
-4. FormVersions
-5. FormFields
-6. FormSubmissions
-7. SubmissionFields
-8. SubmissionFieldHistory
-9. AIAnalyses
-10. ConversationMessages
-11. Clarifications
-12. BusinessRules
-13. RuleExecutionResults
-14. Confirmations
+| # | Table | Purpose |
+|---|---|---|
+| 1 | Users | Accounts with roles |
+| 2 | UserProfileAttributes | Client-specific key-value attributes (e.g., creditLimit) |
+| 3 | Forms | Form definitions |
+| 4 | FormVersions | Versioned snapshots of a form (Draft/PendingApproval/Published/Rejected) |
+| 5 | FormFields | Individual fields within a version |
+| 6 | FormSubmissions | User submission instances |
+| 7 | SubmissionFields | Per-field values within a submission |
+| 8 | SubmissionFieldHistory | Audit trail of field value changes |
+| 9 | AIAnalyses | Records of AI extraction calls |
+| 10 | ConversationMessages | Chat history for multi-turn AI clarification |
+| 11 | Clarifications | AI-generated clarification questions per field |
+| 12 | BusinessRules | Rule definitions linked to a form version |
+| 13 | RuleExecutionResults | Outcomes of rule checks per submission |
+| 14 | Confirmations | Final confirmation records |
+| 15 | UserFormAccesses | Grants regular users access to specific forms |
 
 ---
 
-## 10. Error Handling
+## 12. Error Handling
 
 `ExceptionHandlingMiddleware` maps exceptions to HTTP status codes:
 
@@ -220,7 +325,21 @@ EnterpriseAI/
 
 ---
 
-## 11. API Contracts (Team Integration)
+## 13. CORS Configuration
 
-Full contract for AI ↔ Backend ↔ Frontend integration is in:
+Allowed origins (configurable in `appsettings.json` under `Cors:AllowedOrigins`):
+- `http://localhost:3000`
+- `http://localhost:5173`
+- `http://localhost:5174`
+- `http://enterpriseaifront.runasp.net`
+- `https://enterpriseaifront.runasp.net`
+
+---
+
+## 14. API Contracts (Team Integration)
+
+Full contract for AI <-> Backend <-> Frontend integration is in:
 `docs/api-contracts.md`
+
+Scalar interactive API docs available in development at:
+`/scalar/v1` (after running the backend locally)
